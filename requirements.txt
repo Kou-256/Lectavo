@@ -1,0 +1,14 @@
+opencv-python==5.0.0.93
+scikit-image==0.26.0
+ImageHash==4.3.2
+Pillow==12.3.0
+reportlab==5.0.0
+faster-whisper==1.2.1
+ctranslate2==4.8.1
+nvidia-cublas-cu12==12.9.2.10; platform_system == "Windows" and platform_machine == "AMD64"
+nvidia-cuda-nvrtc-cu12==12.9.86; platform_system == "Windows" and platform_machine == "AMD64"
+huggingface-hub==1.22.0
+av==18.0.0
+PySide6==6.11.1
+tqdm==4.68.4
+numpy==2.5.1

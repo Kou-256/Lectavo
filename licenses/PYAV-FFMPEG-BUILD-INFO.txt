@@ -1,0 +1,33 @@
+Lectavo 0.2.1 uses PyAV 18.0.0 binary wheels on Windows x64.
+
+The installed wheel reports dynamically linked FFmpeg libraries:
+
+- libavutil 60.26.102: LGPL version 3 or later
+- libavcodec 62.28.102: LGPL version 3 or later
+- libavformat 62.12.102: LGPL version 3 or later
+- libavdevice 62.3.102: LGPL version 3 or later
+- libavfilter 11.14.102: LGPL version 3 or later
+- libswscale 9.5.102: LGPL version 3 or later
+- libswresample 6.3.102: LGPL version 3 or later
+
+Reported configure options:
+
+--disable-static --enable-shared --libdir=/c/cibw/vendor/lib --prefix=/c/cibw/vendor --disable-programs --disable-doc --disable-libxml2 --disable-lzma --disable-libtheora --disable-libfreetype --disable-libfontconfig --disable-libbluray --disable-libopenjpeg --enable-mediafoundation --enable-version3 --disable-alsa --disable-gnutls --enable-libdav1d --enable-libmp3lame --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopus --enable-libsvtav1 --enable-libvpx --enable-libwebp --disable-libxcb --enable-zlib --enable-libx264 --enable-libx265 --enable-nvenc --enable-nvdec --enable-amf --enable-libvpl --disable-encoder='avui,dca,mlp,opus,s302m,sonic,sonic_ls,truehd' --disable-decoder=sonic --disable-libjack --disable-indev=jack --disable-filter=gfxcapture
+
+OpenCV video I/O build lines:
+
+- FFMPEG:                      YES (prebuilt binaries)
+- avcodec:                   YES (61.19.100)
+- avformat:                  YES (61.7.100)
+- avutil:                    YES (59.39.100)
+- swscale:                   YES (8.3.100)
+
+Upstream source references:
+
+- PyAV: https://github.com/PyAV-Org/PyAV
+- PyAV FFmpeg builds: https://github.com/PyAV-Org/pyav-ffmpeg
+- FFmpeg: https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz
+
+Before public binary distribution, provide the exact corresponding source and
+other materials required by the applicable licenses. See
+PUBLIC_RELEASE_CHECKLIST.md.

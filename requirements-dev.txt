@@ -1,0 +1,5 @@
+-r requirements.txt
+-r requirements-build.txt
+pypdf==6.14.2
+ruff==0.15.21
+pip-licenses==5.5.5
