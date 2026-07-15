@@ -59,8 +59,8 @@ def main() -> int:
     QApplication.processEvents()
 
     sample_paths = [
-        Path(r"C:\講義動画\サービス情報学-01.mp4"),
-        Path(r"C:\講義動画\サービス情報学-02.mp4"),
+        Path(r"C:\講義動画\講義サンプル-01.mp4"),
+        Path(r"C:\講義動画\講義サンプル-02.mp4"),
     ]
     ready_window = MainWindow(icon_path=icon_path)
     ready_window.history = []

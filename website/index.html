@@ -3,142 +3,270 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0b1219" />
+    <meta name="theme-color" content="#091113" />
     <meta
       name="description"
-      content="Lectavoは講義動画からスライドPDF、文字起こし、講義ノートを生成するWindowsデスクトップアプリです。"
+      content="Lectavoは講義動画から重複のないスライドPDF、文字起こし、講義ノートを生成するWindowsアプリです。faster-whisperのCUDAアクセラレーションに対応しています。"
     />
     <meta property="og:title" content="Lectavo" />
     <meta
       property="og:description"
-      content="講義動画から、重複のないスライドPDFと文字起こしを。"
+      content="講義動画を、重複のないスライドPDFと文字起こしへ。"
     />
-    <meta property="og:image" content="/screenshots/lectavo-home.png" />
+    <meta property="og:image" content="https://lectavo.vercel.app/screenshots/lectavo-home.png" />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lectavo.vercel.app" />
     <link rel="icon" type="image/png" href="/app-icon.png" />
     <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/site.js"></script>
     <title>Lectavo | 講義動画からスライドと文字起こしを</title>
   </head>
   <body>
     <header class="site-header">
       <a class="brand" href="#top" aria-label="Lectavo ホーム">
-        <img src="/app-icon.png" alt="" width="40" height="40" />
+        <img src="/app-icon.png" alt="" width="38" height="38" />
         <span>Lectavo</span>
       </a>
       <nav aria-label="メインナビゲーション">
-        <a href="#features">機能</a>
+        <a href="#workflow">できること</a>
+        <a href="#cuda">CUDA</a>
         <a href="#screens">画面</a>
         <a href="https://github.com/Kou-256/Lectavo">GitHub</a>
-        <a class="download-button download-button--small" href="#download">ダウンロード</a>
+        <a class="button button--small" href="#download">ダウンロード</a>
       </nav>
     </header>
 
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
-        <img
-          class="hero-image"
-          src="/screenshots/lectavo-home.png"
-          alt="Lectavoのホーム画面。動画の選択と最近の処理を表示しています。"
-        />
-        <div class="hero-shade" aria-hidden="true"></div>
-        <div class="hero-copy">
-          <p class="kicker">Windows 10 / 11 x64</p>
+        <div class="hero-media" aria-hidden="true">
+          <img src="/screenshots/lectavo-home.png" alt="" />
+        </div>
+        <div class="hero-overlay" aria-hidden="true"></div>
+        <div class="hero-scan" aria-hidden="true"></div>
+
+        <div class="hero-content">
+          <p class="platform">Windows 10 / 11 x64</p>
           <h1 id="hero-title">Lectavo</h1>
-          <p>講義動画から、重複のないスライドPDFと文字起こしを。</p>
+          <p class="hero-lead">講義動画を、<br />PDFと文字起こしへ。</p>
+          <p class="hero-description">
+            スライドの切り替わりを見つけ、重複を除き、faster-whisperで発話を整理。
+            複数の動画も一つの講義資料にまとめます。
+          </p>
           <div class="hero-actions">
             <a
-              class="download-button"
-              href="https://github.com/Kou-256/Lectavo/releases/download/v0.2.1/Lectavo-Setup.exe"
+              class="button button--large"
+              href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-Setup.exe"
+              data-download
             >
               Windows版をダウンロード
+              <span aria-hidden="true">↓</span>
             </a>
-            <a class="secondary-link" href="https://github.com/Kou-256/Lectavo">ソースを見る</a>
+            <a class="text-link text-link--light" href="https://github.com/Kou-256/Lectavo">
+              GitHubで見る
+            </a>
           </div>
-          <span class="release-note">Version 0.2.1 ・ 無料 ・ MIT License</span>
+          <p class="release-meta">Version 0.2.1 ・ 無料 ・ Python不要</p>
+        </div>
+
+        <div class="hero-status" aria-label="Lectavoの処理機能">
+          <div>
+            <span class="status-dot"></span>
+            <strong>Slide detection</strong>
+            <small>局所変化を除外</small>
+          </div>
+          <div>
+            <span class="status-dot"></span>
+            <strong>Deduplication</strong>
+            <small>動画をまたいで照合</small>
+          </div>
+          <div>
+            <span class="status-dot status-dot--gpu"></span>
+            <strong>Whisper CUDA</strong>
+            <small>NVIDIA GPU対応</small>
+          </div>
         </div>
       </section>
 
-      <section class="intro" id="features" aria-labelledby="feature-title">
+      <section class="statement reveal" id="workflow" aria-labelledby="statement-title">
+        <p class="section-index">01 / WORKFLOW</p>
         <div>
-          <p class="section-label">LECTURE TO NOTES</p>
-          <h2 id="feature-title">動画を選ぶ。その後はLectavoに任せる。</h2>
+          <h2 id="statement-title">動画を選ぶ。<br />資料ができる。</h2>
+          <p>
+            カーソルやレーザーポインターの移動は無視し、意味のあるスライド変化だけを検出します。
+            PDF、タイムスタンプ付き文字起こし、スライド別Markdownまで一つの流れで生成します。
+          </p>
         </div>
-        <p>
-          レーザーポインターやカーソルの小さな動きを除外し、スライドの切り替わりだけを検出します。
-          前のページへ戻った場合も重複を取り除き、PDF、文字起こし、講義ノートへ整理します。
+      </section>
+
+      <section class="flow reveal" aria-label="Lectavoの処理フロー">
+        <div class="flow-track" aria-hidden="true"><span></span></div>
+        <div class="flow-node is-active" data-flow-step="0">
+          <span>01</span>
+          <strong>動画</strong>
+          <small>MP4 / MOV / MKV</small>
+        </div>
+        <div class="flow-node" data-flow-step="1">
+          <span>02</span>
+          <strong>スライド検出</strong>
+          <small>SSIM + 差分解析</small>
+        </div>
+        <div class="flow-node" data-flow-step="2">
+          <span>03</span>
+          <strong>重複除去</strong>
+          <small>pHash + SSIM</small>
+        </div>
+        <div class="flow-node" data-flow-step="3">
+          <span>04</span>
+          <strong>文字起こし</strong>
+          <small>faster-whisper</small>
+        </div>
+        <div class="flow-node" data-flow-step="4">
+          <span>05</span>
+          <strong>資料完成</strong>
+          <small>PDF / TXT / SRT / MD</small>
+        </div>
+        <p class="flow-status" aria-live="polite">
+          <span>処理中</span><strong data-flow-status>動画を読み込んでいます</strong>
         </p>
       </section>
 
-      <section class="feature-list" aria-label="主な機能">
-        <article>
-          <span>01</span>
-          <h3>スライド抽出</h3>
-          <p>OpenCV、SSIM、pHashを組み合わせ、局所的な変化を無視してページ変化を捉えます。</p>
-        </article>
-        <article>
-          <span>02</span>
-          <h3>重複除去</h3>
-          <p>複数動画をまとめる場合も、再表示された同じスライドを最終PDFから除外します。</p>
-        </article>
-        <article>
-          <span>03</span>
-          <h3>文字起こし</h3>
-          <p>faster-whisperでタイムスタンプ付きTXTとSRTを生成。CUDAが使えない場合はCPUで続行します。</p>
-        </article>
-        <article>
-          <span>04</span>
-          <h3>講義ノート</h3>
-          <p>各スライドの表示時間と発話を対応付け、画像を参照できるMarkdownにまとめます。</p>
-        </article>
-      </section>
-
-      <section class="product-view" id="screens" aria-labelledby="screen-title">
-        <div class="product-view-copy">
-          <p class="section-label">ACTUAL APP</p>
-          <h2 id="screen-title">必要な設定だけが見える、静かな操作画面。</h2>
+      <section class="cuda-section" id="cuda" aria-labelledby="cuda-title">
+        <div class="cuda-copy reveal">
+          <p class="section-index section-index--dark">02 / GPU TRANSCRIPTION</p>
+          <h2 id="cuda-title">faster-whisperを、<br />NVIDIA GPUで。</h2>
           <p>
-            動画ごとの出力と、複数動画を一つへまとめる出力を選択できます。日本語と英語のUI、CPUとGPU、
-            高速・標準・高精度のプリセットに対応しています。
+            CUDA 12向けcuBLASランタイムをアプリに同梱。対応するNVIDIA GPUとcuDNN 9環境では、
+            faster-whisperの文字起こしをGPUで実行できます。
+          </p>
+          <dl class="cuda-facts">
+            <div><dt>Runtime</dt><dd>CUDA 12 / cuBLAS</dd></div>
+            <div><dt>Engine</dt><dd>faster-whisper 1.2.1</dd></div>
+            <div><dt>Fallback</dt><dd>CPU int8へ自動切替</dd></div>
+          </dl>
+          <p class="cuda-note">
+            GPUや必要DLLを利用できない場合も停止せず、「CUDAが使えないためCPUで続行しました」と通知します。
           </p>
         </div>
-        <figure>
+
+        <div class="compute-visual reveal" aria-label="CUDA文字起こしの動作イメージ">
+          <div class="compute-header">
+            <span>TRANSCRIPTION ENGINE</span>
+            <strong><i></i> CUDA READY</strong>
+          </div>
+          <div class="waveform" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <div class="compute-row">
+            <span>NVIDIA GPU</span>
+            <div class="meter"><i style="--meter: 92%"></i></div>
+            <strong>92%</strong>
+          </div>
+          <div class="compute-row">
+            <span>VRAM</span>
+            <div class="meter"><i style="--meter: 58%"></i></div>
+            <strong>58%</strong>
+          </div>
+          <div class="transcript-preview">
+            <span>00:12.480</span>
+            <p>講義の音声を解析し、タイムスタンプ付きで整理しています。</p>
+            <span>00:18.920</span>
+            <p>スライドの表示時間と発話内容を自動で対応付けます。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="features reveal" aria-labelledby="features-title">
+        <p class="section-index">03 / OUTPUTS</p>
+        <h2 id="features-title">戻ったページも、<br />複数動画も、きれいに一つへ。</h2>
+        <div class="feature-lines">
+          <article>
+            <span>PDF</span>
+            <div>
+              <h3>重複のないスライド</h3>
+              <p>前ページへ戻った場面や、複数動画間で再登場したスライドを除外します。</p>
+            </div>
+          </article>
+          <article>
+            <span>TXT</span>
+            <div>
+              <h3>読める文字起こし</h3>
+              <p>自然な言語検出とタイムスタンプ付きTXT・SRTに対応します。</p>
+            </div>
+          </article>
+          <article>
+            <span>MD</span>
+            <div>
+              <h3>スライド別の講義ノート</h3>
+              <p>画像と、そのスライドが表示されていた間の発話をMarkdownへまとめます。</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="screens" id="screens" aria-labelledby="screens-title">
+        <div class="screens-heading reveal">
+          <p class="section-index">04 / ACTUAL APP</p>
+          <h2 id="screens-title">必要なものだけが見える、<br />静かな操作画面。</h2>
+          <p>日本語・英語UI、CPU・GPU、高速・標準・高精度の処理品質を選択できます。</p>
+        </div>
+        <figure class="screen-main reveal">
+          <div class="window-bar" aria-hidden="true">
+            <span>Lectavo</span><i></i><i></i><i></i>
+          </div>
           <img
             src="/screenshots/lectavo-ready.png"
-            alt="Lectavoで複数の講義動画と出力内容、保存先、処理品質を設定している画面。"
+            alt="講義サンプル動画を追加し、出力内容を設定しているLectavoの画面"
+          />
+        </figure>
+        <figure class="screen-secondary reveal">
+          <img
+            src="/screenshots/lectavo-home.png"
+            alt="動画を選択できるLectavoのホーム画面"
           />
           <figcaption>実際のLectavo 0.2.1 Windowsアプリ画面</figcaption>
         </figure>
       </section>
 
       <section class="download-section" id="download" aria-labelledby="download-title">
-        <div>
-          <p class="section-label section-label--light">DOWNLOAD</p>
-          <h2 id="download-title">講義動画を、使える資料へ。</h2>
-          <p>Pythonのインストールは不要です。セットアップを実行して、そのままLectavoを起動できます。</p>
-          <ul>
-            <li>Windows 10 / 11 x64</li>
-            <li>Whisperモデルは初回利用時に取得</li>
-            <li>GPUは任意。CPUのみでも利用可能</li>
-          </ul>
+        <div class="download-background" aria-hidden="true"></div>
+        <div class="download-copy reveal">
+          <p class="section-index section-index--dark">DOWNLOAD</p>
+          <h2 id="download-title">講義動画を、<br />使える資料へ。</h2>
+          <p>
+            Pythonやpipのインストールは不要です。セットアップを実行して、そのままLectavoを起動できます。
+          </p>
+          <div class="requirements">
+            <span>Windows 10 / 11 x64</span>
+            <span>約613 MB</span>
+            <span>Whisperモデルは初回取得</span>
+          </div>
         </div>
-        <div class="download-actions">
+        <div class="download-actions reveal">
+          <img src="/app-icon.png" width="88" height="88" alt="Lectavo" />
           <a
-            class="download-button download-button--light"
-            href="https://github.com/Kou-256/Lectavo/releases/download/v0.2.1/Lectavo-Setup.exe"
+            class="button button--large button--light"
+            href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-Setup.exe"
+            data-download
           >
-            Lectavoをダウンロード
+            Lectavo-Setup.exe
+            <span aria-hidden="true">↓</span>
           </a>
-          <a class="release-link" href="https://github.com/Kou-256/Lectavo/releases/tag/v0.2.1">
+          <a class="text-link text-link--light" href="https://github.com/Kou-256/Lectavo/releases/latest">
             リリースノートとSHA-256
           </a>
+          <small>Version 0.2.1 ・ MIT License ・ 未署名</small>
         </div>
       </section>
     </main>
 
     <footer>
-      <span>Lectavo 0.2.1</span>
+      <a class="brand brand--footer" href="#top">
+        <img src="/app-icon.png" alt="" width="30" height="30" />
+        <span>Lectavo</span>
+      </a>
       <span>© 2026 Kou Hashizume</span>
       <a href="https://github.com/Kou-256/Lectavo/blob/main/LICENSE">MIT License</a>
+      <a href="https://github.com/Kou-256/Lectavo">GitHub</a>
     </footer>
   </body>
 </html>
