@@ -4,22 +4,104 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#091113" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="application-name" content="Lectavo" />
+    <meta name="author" content="Kou Hashizume" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta
       name="description"
-      content="Lectavoは講義動画から重複のないスライドPDF、文字起こし、講義ノートを生成するWindowsアプリです。faster-whisperのCUDAアクセラレーションに対応しています。"
+      content="Lectavoは講義動画から重複のないスライドPDF、タイムスタンプ付き文字起こし、講義ノートを自動生成する無料のWindowsアプリです。faster-whisperとNVIDIA CUDAに対応しています。"
     />
-    <meta property="og:title" content="Lectavo" />
+    <link rel="canonical" href="https://lectavo.vercel.app/" />
+    <link rel="alternate" hreflang="ja" href="https://lectavo.vercel.app/" />
+    <link rel="alternate" hreflang="x-default" href="https://lectavo.vercel.app/" />
+    <meta property="og:site_name" content="Lectavo" />
+    <meta property="og:title" content="Lectavo | 講義動画からスライドPDF・文字起こしを自動生成" />
     <meta
       property="og:description"
-      content="講義動画を、重複のないスライドPDFと文字起こしへ。"
+      content="講義動画を、重複のないスライドPDF、文字起こし、講義ノートへ。faster-whisperとNVIDIA CUDAに対応。"
     />
-    <meta property="og:image" content="https://lectavo.vercel.app/screenshots/lectavo-home.png" />
+    <meta property="og:image" content="https://lectavo.vercel.app/lectavo-og.png" />
+    <meta property="og:image:secure_url" content="https://lectavo.vercel.app/lectavo-og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Lectavoのアプリアイコン、講義動画から学べる資料を作るという説明、実際のWindowsアプリ画面"
+    />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://lectavo.vercel.app" />
-    <link rel="icon" type="image/png" href="/app-icon.png" />
+    <meta property="og:url" content="https://lectavo.vercel.app/" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Lectavo | 講義動画からスライドPDF・文字起こしを自動生成" />
+    <meta
+      name="twitter:description"
+      content="講義動画を、重複のないスライドPDF、文字起こし、講義ノートへ。"
+    />
+    <meta name="twitter:image" content="https://lectavo.vercel.app/lectavo-og.png" />
+    <meta
+      name="twitter:image:alt"
+      content="講義動画からスライドPDFと文字起こしを生成するLectavo"
+    />
+    <link rel="icon" type="image/png" sizes="1024x1024" href="/app-icon.png" />
+    <link rel="apple-touch-icon" href="/app-icon.png" />
     <link rel="stylesheet" href="/styles.css" />
     <script type="module" src="/site.js"></script>
-    <title>Lectavo | 講義動画からスライドと文字起こしを</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://lectavo.vercel.app/#website",
+            "url": "https://lectavo.vercel.app/",
+            "name": "Lectavo",
+            "alternateName": "Lectavo 公式サイト",
+            "description": "講義動画からスライドPDF、文字起こし、講義ノートを自動生成するWindowsアプリ",
+            "inLanguage": "ja"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://lectavo.vercel.app/#application",
+            "name": "Lectavo",
+            "url": "https://lectavo.vercel.app/",
+            "downloadUrl": "https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-Setup.exe",
+            "image": "https://lectavo.vercel.app/lectavo-og.png",
+            "screenshot": [
+              "https://lectavo.vercel.app/screenshots/lectavo-home.png",
+              "https://lectavo.vercel.app/screenshots/lectavo-ready.png"
+            ],
+            "description": "講義動画から重複のないスライドPDF、タイムスタンプ付き文字起こし、講義ノートを自動生成します。",
+            "applicationCategory": "EducationalApplication",
+            "applicationSubCategory": "Lecture note generator",
+            "operatingSystem": "Windows 10, Windows 11",
+            "softwareVersion": "0.2.1",
+            "softwareRequirements": "Windows x64",
+            "featureList": [
+              "スライド変化検出",
+              "動画間の重複スライド除去",
+              "スライドPDF生成",
+              "faster-whisper文字起こし",
+              "NVIDIA CUDAアクセラレーション",
+              "講義ノートMarkdown生成"
+            ],
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "JPY"
+            },
+            "author": {
+              "@type": "Person",
+              "name": "Kou Hashizume"
+            },
+            "sameAs": "https://github.com/Kou-256/Lectavo"
+          }
+        ]
+      }
+    </script>
+    <title>Lectavo | 講義動画からスライドPDF・文字起こしを自動生成</title>
   </head>
   <body>
     <header class="site-header">
@@ -39,7 +121,7 @@
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-media" aria-hidden="true">
-          <img src="/screenshots/lectavo-home.png" alt="" />
+          <img src="/screenshots/lectavo-home.png" alt="" fetchpriority="high" decoding="async" />
         </div>
         <div class="hero-overlay" aria-hidden="true"></div>
         <div class="hero-scan" aria-hidden="true"></div>
