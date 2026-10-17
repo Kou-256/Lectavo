@@ -10,7 +10,6 @@ from PySide6.QtGui import QDesktopServices, QDragEnterEvent, QDropEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
-    QComboBox,
     QDialog,
     QFileDialog,
     QFrame,
@@ -38,6 +37,7 @@ from movie_slide_notes.core.processor import (
     discover_videos,
     natural_video_sort_key,
 )
+from movie_slide_notes.gui.controls import NoWheelComboBox as QComboBox
 from movie_slide_notes.gui.design_tokens import LAYOUT, SPACING, build_stylesheet
 from movie_slide_notes.gui.i18n import (
     current_ui_language,

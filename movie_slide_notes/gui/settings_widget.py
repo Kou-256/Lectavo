@@ -4,14 +4,11 @@ from dataclasses import replace
 
 from PySide6.QtCore import QSettings, Qt, Signal
 from PySide6.QtWidgets import (
-    QComboBox,
-    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QGridLayout,
     QLabel,
     QSizePolicy,
-    QSpinBox,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -19,6 +16,9 @@ from PySide6.QtWidgets import (
 
 from movie_slide_notes.core.processor import PRESETS
 from movie_slide_notes.duplicate_filter import DuplicateConfig
+from movie_slide_notes.gui.controls import NoWheelComboBox as QComboBox
+from movie_slide_notes.gui.controls import NoWheelDoubleSpinBox as QDoubleSpinBox
+from movie_slide_notes.gui.controls import NoWheelSpinBox as QSpinBox
 from movie_slide_notes.gui.i18n import tr
 from movie_slide_notes.slide_detector import SlideDetectionConfig
 from movie_slide_notes.transcriber import TranscriptionConfig, inspect_cuda_runtime
