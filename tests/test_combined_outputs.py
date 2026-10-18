@@ -137,17 +137,21 @@ class CombinedOutputTests(unittest.TestCase):
             named_options = replace(
                 options,
                 output_naming=OutputNamingConfig(
-                    "common", date_style="datetime", timestamp=datetime(2026, 10, 18, 15, 4, 5)
+                    "custom",
+                    custom_name="復習 資料(第3回)",
+                    date_style="datetime",
+                    timestamp=datetime(2026, 10, 18, 15, 4, 5),
                 ),
             )
             finalize_combined_outputs(batch, named_output, named_options, None, None, 200, 2)
-            prefix = "講義_2026-10-18_15-04-05"
+            prefix = "復習 資料(第3回)_2026-10-18_15-04-05"
             self.assertEqual(batch.combined_pdf_path.name, f"{prefix}_slides.pdf")
             self.assertEqual(len(PdfReader(batch.combined_pdf_path).pages), 2)
             self.assertEqual(batch.combined_transcript_path.name, f"{prefix}_transcript.txt")
             self.assertTrue(batch.combined_srt_path.is_file())
             named_markdown = batch.combined_markdown_path.read_text(encoding="utf-8")
             self.assertIn(f"{prefix}_images/", named_markdown)
+            self.assertIn(f"(<{prefix}_images/", named_markdown)
             self.assertEqual(len(list((named_output / f"{prefix}_images").glob("*.png"))), 2)
 
     @staticmethod

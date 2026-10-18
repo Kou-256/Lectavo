@@ -78,7 +78,7 @@ def write_slide_markdown(
             [
                 f"## Slide {slide_index}",
                 "",
-                f"![Slide {slide_index}]({relative_path})",
+                f"![Slide {slide_index}](<{relative_path}>)",
                 "",
                 f"**表示時刻:** {timestamp}",
                 "",
@@ -115,7 +115,7 @@ def write_combined_slide_markdown(
             [
                 f"## Slide {index}",
                 "",
-                f"![Slide {index}]({relative_path})",
+                f"![Slide {index}](<{relative_path}>)",
                 "",
                 "### Transcript",
                 "",
