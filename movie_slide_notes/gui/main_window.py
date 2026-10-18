@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from movie_slide_notes.core.output_naming import OutputNamingConfig, output_stem
 from movie_slide_notes.core.processor import (
     BatchResult,
     OperationOptions,
@@ -254,6 +255,36 @@ class MainWindow(QMainWindow):
         output_row.addWidget(self.output_path, 1)
         output_row.addWidget(self.output_browse)
         ready_layout.addLayout(output_row)
+
+        ready_layout.addWidget(section_title("ファイル名"))
+        naming_grid = QGridLayout()
+        self.naming_mode = QComboBox()
+        self.naming_mode.addItem("従来の名前", "original")
+        self.naming_mode.addItem("動画名の共通部分", "common")
+        self.naming_mode.addItem("自由に入力", "custom")
+        self.naming_mode.setAccessibleName("名前の付け方")
+        self.custom_output_name = QLineEdit()
+        self.custom_output_name.setPlaceholderText("例: 第3回 講義資料")
+        self.custom_output_name.setAccessibleName("出力名")
+        self.naming_date = QComboBox()
+        self.naming_date.addItem("付けない", "none")
+        self.naming_date.addItem("日付を付ける", "date")
+        self.naming_date.addItem("日時を付ける", "datetime")
+        self.naming_date.setAccessibleName("日付・日時")
+        naming_grid.addWidget(QLabel("名前の付け方"), 0, 0)
+        naming_grid.addWidget(self.naming_mode, 0, 1)
+        naming_grid.addWidget(self.custom_output_name, 1, 1)
+        naming_grid.addWidget(QLabel("日付・日時"), 2, 0)
+        naming_grid.addWidget(self.naming_date, 2, 1)
+        naming_grid.setColumnStretch(1, 1)
+        ready_layout.addLayout(naming_grid)
+        self.naming_preview = QLabel()
+        self.naming_preview.setObjectName("Hint")
+        self.naming_preview.setWordWrap(True)
+        self.naming_preview.setMinimumWidth(0)
+        self.naming_preview.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.naming_preview.setTextFormat(Qt.PlainText)
+        ready_layout.addWidget(self.naming_preview)
 
         ready_layout.addSpacing(12)
         ready_layout.addWidget(section_title("処理品質"))
@@ -579,6 +610,9 @@ class MainWindow(QMainWindow):
             checkbox.toggled.connect(self._operation_changed)
 
         self.output_mode_combo.currentIndexChanged.connect(self._output_mode_changed)
+        self.naming_mode.currentIndexChanged.connect(self._naming_changed)
+        self.naming_date.currentIndexChanged.connect(self._naming_changed)
+        self.custom_output_name.textChanged.connect(self._naming_changed)
         self.quality_combo.currentIndexChanged.connect(self._compact_preset_changed)
         self.device_combo.currentIndexChanged.connect(self._compact_device_changed)
         self.inspector_preset.currentIndexChanged.connect(self._compact_preset_changed)
@@ -602,6 +636,10 @@ class MainWindow(QMainWindow):
         if output_mode not in {"combined", "per_video"}:
             output_mode = "combined"
         set_combo_data(self.output_mode_combo, output_mode)
+        set_combo_data(self.naming_mode, self.settings.value("naming_mode", "original"))
+        set_combo_data(self.naming_date, self.settings.value("naming_date", "none"))
+        self.custom_output_name.setText(str(self.settings.value("custom_output_name", "")))
+        self._update_naming_preview()
         self._output_mode_changed()
         self._sync_compact_settings_from_settings_widget()
         self._refresh_recent()
@@ -613,6 +651,9 @@ class MainWindow(QMainWindow):
 
     def _save_settings(self) -> None:
         self.settings.setValue("output_path", self.output_path.text())
+        self.settings.setValue("naming_mode", self.naming_mode.currentData())
+        self.settings.setValue("naming_date", self.naming_date.currentData())
+        self.settings.setValue("custom_output_name", self.custom_output_name.text())
         self.settings.setValue("extract_slides", self._operation_options().extract_slides)
         self.settings.setValue("generate_pdf", self.output_pdf.isChecked())
         self.settings.setValue("transcribe_audio", self.output_lecture_notes.isChecked())
@@ -664,6 +705,7 @@ class MainWindow(QMainWindow):
         self._save_settings()
 
     def _output_mode_changed(self) -> None:
+        self._update_naming_preview()
         combined = self.output_mode_combo.currentData() == "combined"
         if combined:
             self.output_mode_hint.setText(
@@ -726,6 +768,7 @@ class MainWindow(QMainWindow):
         if self.videos and not self.output_path.text().strip():
             self._set_output_path(self.videos[0].parent / "Lectavo_output")
         self._refresh_video_list()
+        self._update_naming_preview()
         if self.videos:
             self._set_workflow_state("ready")
             self._select_page("home")
@@ -739,6 +782,7 @@ class MainWindow(QMainWindow):
             self.videos.remove(resolved)
             self.video_statuses.pop(resolved, None)
         self._refresh_video_list()
+        self._update_naming_preview()
         self._set_workflow_state("ready" if self.videos else "empty")
 
     def clear_videos(self) -> None:
@@ -767,6 +811,11 @@ class MainWindow(QMainWindow):
                 tr("出力先フォルダを選択してください。"),
             )
             return
+        try:
+            output_stem(self.videos, self._naming_config(), combined=True)
+        except ValueError as exc:
+            QMessageBox.information(self, tr("出力名"), tr(str(exc)))
+            return
         self._save_settings()
         self.log_messages.clear()
         self._set_log_texts()
@@ -774,6 +823,7 @@ class MainWindow(QMainWindow):
         self._cancel_requested = False
         self.overall_progress.setValue(0)
         self.run_started_at = datetime.now()
+        self._update_naming_preview(self.run_started_at)
         self._update_elapsed()
         self.elapsed_timer.start()
         for path in self.videos:
@@ -787,6 +837,7 @@ class MainWindow(QMainWindow):
             per_video_dirs=True,
             output_mode=str(self.output_mode_combo.currentData()),
             show_progress=False,
+            output_naming=self._naming_config(self.run_started_at),
         )
         self._running_device_text = self.device_combo.currentText()
         self._refresh_running_settings()
@@ -922,6 +973,8 @@ class MainWindow(QMainWindow):
         ]:
             checkbox.setEnabled(not running)
         self.output_mode_combo.setEnabled(not running)
+        for control in (self.naming_mode, self.naming_date, self.custom_output_name):
+            control.setEnabled(not running)
         self.quality_combo.setEnabled(not running)
         self.device_combo.setEnabled(not running)
 
@@ -1203,6 +1256,7 @@ class MainWindow(QMainWindow):
             "\n".join(
                 [
                     tr(f"出力方法: {self.output_mode_combo.currentText()}"),
+                    self.naming_preview.text(),
                     tr(f"出力: {output_separator.join(outputs)}"),
                     tr(f"処理品質: {self.quality_combo.currentText()}"),
                     tr(f"言語: {self.settings_widget.language_combo.currentText()}"),
@@ -1211,6 +1265,28 @@ class MainWindow(QMainWindow):
                 ]
             )
         )
+
+    def _naming_config(self, moment: datetime | None = None) -> OutputNamingConfig:
+        return OutputNamingConfig(
+            mode=str(self.naming_mode.currentData()),
+            custom_name=self.custom_output_name.text(),
+            date_style=str(self.naming_date.currentData()),
+            timestamp=moment,
+        )
+
+    def _naming_changed(self) -> None:
+        self._update_naming_preview()
+        self._save_settings()
+
+    def _update_naming_preview(self, moment: datetime | None = None) -> None:
+        self.custom_output_name.setVisible(self.naming_mode.currentData() == "custom")
+        combined = self.output_mode_combo.currentData() == "combined"
+        paths = self.videos if combined else self.videos[:1]
+        try:
+            stem = output_stem(paths, self._naming_config(moment), combined=combined)
+            self.naming_preview.setText(tr("出力名の例") + f": {stem}_slides.pdf / {stem}_transcript.txt")
+        except ValueError as exc:
+            self.naming_preview.setText(tr(str(exc)))
 
     def _set_output_path(self, path: Path) -> None:
         text = str(path)

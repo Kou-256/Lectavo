@@ -17,6 +17,19 @@ _current_language = DEFAULT_UI_LANGUAGE
 
 
 ENGLISH: dict[str, str] = {
+    "ファイル名": "File names",
+    "名前の付け方": "Naming",
+    "従来の名前": "Original names",
+    "動画名の共通部分": "Common video name",
+    "自由に入力": "Custom name",
+    "例: 第3回 講義資料": "Example: Lecture 3 notes",
+    "出力名": "Output name",
+    "出力名の例": "Filename preview",
+    "出力名を入力してください。": "Enter an output name.",
+    "日付・日時": "Date / time",
+    "付けない": "None",
+    "日付を付ける": "Append date",
+    "日時を付ける": "Append date and time",
     "ホーム": "Home",
     "履歴": "History",
     "設定": "Settings",

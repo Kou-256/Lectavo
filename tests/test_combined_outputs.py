@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -9,6 +11,7 @@ import cv2
 import numpy as np
 from pypdf import PdfReader
 
+from movie_slide_notes.core.output_naming import OutputNamingConfig
 from movie_slide_notes.core.processor import (
     BatchResult,
     OperationOptions,
@@ -128,6 +131,24 @@ class CombinedOutputTests(unittest.TestCase):
             self.assertIn("講義 01 - 00:00:00", markdown)
             self.assertIn("講義 02 - 00:00:00", markdown)
             self.assertIn("再表示した説明", markdown)
+
+            named_output = root / "named"
+            named_output.mkdir()
+            named_options = replace(
+                options,
+                output_naming=OutputNamingConfig(
+                    "common", date_style="datetime", timestamp=datetime(2026, 10, 18, 15, 4, 5)
+                ),
+            )
+            finalize_combined_outputs(batch, named_output, named_options, None, None, 200, 2)
+            prefix = "講義_2026-10-18_15-04-05"
+            self.assertEqual(batch.combined_pdf_path.name, f"{prefix}_slides.pdf")
+            self.assertEqual(len(PdfReader(batch.combined_pdf_path).pages), 2)
+            self.assertEqual(batch.combined_transcript_path.name, f"{prefix}_transcript.txt")
+            self.assertTrue(batch.combined_srt_path.is_file())
+            named_markdown = batch.combined_markdown_path.read_text(encoding="utf-8")
+            self.assertIn(f"{prefix}_images/", named_markdown)
+            self.assertEqual(len(list((named_output / f"{prefix}_images").glob("*.png"))), 2)
 
     @staticmethod
     def _slide(path: Path, title: str, shade: int) -> Path:

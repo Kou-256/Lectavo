@@ -5,6 +5,7 @@ import shutil
 import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 from pathlib import Path
 from threading import Event
 
@@ -42,6 +43,7 @@ from ..transcriber import (
 from ..transcriber import (
     format_timestamp as format_transcript_timestamp,
 )
+from .output_naming import OutputNamingConfig, output_stem
 
 
 @dataclass(frozen=True)
@@ -100,6 +102,7 @@ class ProcessingOptions:
     per_video_dirs: bool = True
     output_mode: str = "per_video"
     show_progress: bool = False
+    output_naming: OutputNamingConfig = field(default_factory=OutputNamingConfig)
 
 
 @dataclass
@@ -191,6 +194,13 @@ def process_batch(
     cancel_event: Event | None = None,
 ) -> BatchResult:
     options = replace(options, operations=options.operations.normalized())
+    options = replace(
+        options,
+        output_naming=replace(
+            options.output_naming,
+            timestamp=options.output_naming.timestamp or datetime.now(),
+        ),
+    )
     validate_options(options)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -270,7 +280,8 @@ def process_batch(
             and all_slides
             and not is_cancelled(cancel_event)
         ):
-            batch.combined_pdf_path = output_dir / "all_slides.pdf"
+            stem = output_stem(videos, options.output_naming, combined=True)
+            batch.combined_pdf_path = output_dir / f"{stem}_slides.pdf"
             write_pdf(
                 [slide.path for slide in all_slides], batch.combined_pdf_path, options.pdf_margin
             )
@@ -301,10 +312,14 @@ def finalize_combined_outputs(
         total_units,
         total_units,
     )
+    stem = output_stem(
+        [result.video_path for result in batch.results], options.output_naming, combined=True
+    )
     combined_slides, combined_notes, duplicate_count = collect_combined_slides(
         batch.results,
         output_dir,
         options.duplicate_config,
+        slides_subdir="slides" if stem == "all" else f"{stem}_images",
     )
     batch.combined_slide_count = len(combined_slides)
     batch.combined_duplicate_count = duplicate_count
@@ -314,14 +329,14 @@ def finalize_combined_outputs(
     )
 
     if options.operations.generate_pdf and combined_slides:
-        batch.combined_pdf_path = output_dir / "all_slides.pdf"
+        batch.combined_pdf_path = output_dir / f"{stem}_slides.pdf"
         write_pdf(
             [slide.path for slide in combined_slides], batch.combined_pdf_path, options.pdf_margin
         )
         emit_log(log_callback, f"統合PDFを生成しました: {batch.combined_pdf_path}")
 
     if options.operations.transcribe_audio:
-        transcript_paths = write_combined_transcripts(batch.results, output_dir)
+        transcript_paths = write_combined_transcripts(batch.results, output_dir, stem)
         if transcript_paths is not None:
             batch.combined_transcript_path, batch.combined_srt_path = transcript_paths
             emit_log(
@@ -329,7 +344,7 @@ def finalize_combined_outputs(
             )
 
     if options.operations.generate_markdown:
-        batch.combined_markdown_path = output_dir / "all_lecture_notes.md"
+        batch.combined_markdown_path = output_dir / f"{stem}_lecture_notes.md"
         write_combined_slide_markdown(
             "Lectavo 講義ノート", combined_notes, batch.combined_markdown_path
         )
@@ -340,6 +355,7 @@ def collect_combined_slides(
     results: Sequence[ProcessResult],
     output_dir: Path,
     duplicate_config: DuplicateConfig,
+    slides_subdir: str = "slides",
 ) -> tuple[list[SlideRecord], list[CombinedSlideNote], int]:
     duplicate_filter = DuplicateFilter(duplicate_config)
     unique: list[_CombinedSlide] = []
@@ -369,7 +385,7 @@ def collect_combined_slides(
                 )
             )
 
-    slides_dir = output_dir / "slides"
+    slides_dir = output_dir / slides_subdir
     slides_dir.mkdir(parents=True, exist_ok=True)
     final_slides: list[SlideRecord] = []
     notes: list[CombinedSlideNote] = []
@@ -397,13 +413,14 @@ def collect_combined_slides(
 def write_combined_transcripts(
     results: Sequence[ProcessResult],
     output_dir: Path,
+    stem: str = "all",
 ) -> tuple[Path, Path] | None:
     transcript_results = [result for result in results if result.transcription is not None]
     if not transcript_results:
         return None
 
-    text_path = output_dir / "all_transcript.txt"
-    srt_path = output_dir / "all_transcript.srt"
+    text_path = output_dir / f"{stem}_transcript.txt"
+    srt_path = output_dir / f"{stem}_transcript.srt"
     lines: list[str] = []
     global_segments: list[TranscriptionSegment] = []
     offset = 0.0
@@ -470,7 +487,7 @@ def process_video(
         raise ProcessingCancelled("処理をキャンセルしました。")
 
     video_path = Path(video_path)
-    video_stem = sanitize_stem(video_path.stem)
+    video_stem = output_stem([video_path], options.output_naming, combined=False)
     video_output_dir = output_dir / video_stem if options.per_video_dirs else output_dir
     video_output_dir.mkdir(parents=True, exist_ok=True)
     result = ProcessResult(video_path=video_path, output_dir=video_output_dir)
@@ -667,6 +684,10 @@ def apply_preset(config: SlideDetectionConfig, preset_name: str) -> SlideDetecti
 
 
 def validate_options(options: ProcessingOptions) -> None:
+    try:
+        output_stem([], options.output_naming, combined=True)
+    except ValueError as exc:
+        raise ProcessingConfigurationError(str(exc)) from exc
     if options.output_mode not in {"combined", "per_video"}:
         raise ProcessingConfigurationError(f"未対応の出力方式です: {options.output_mode}")
 

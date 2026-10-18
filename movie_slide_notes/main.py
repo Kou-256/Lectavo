@@ -7,6 +7,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from movie_slide_notes.core.output_naming import OutputNamingConfig
 from movie_slide_notes.core.processor import (
     OperationOptions,
     ProcessingConfigurationError,
@@ -99,6 +100,9 @@ def build_processing_options(args: argparse.Namespace) -> ProcessingOptions:
         per_video_dirs=True,
         output_mode=output_mode,
         show_progress=not args.no_progress,
+        output_naming=OutputNamingConfig(
+            mode=args.name_mode, custom_name=args.output_name, date_style=args.name_date
+        ),
     )
 
 
@@ -116,6 +120,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--input", required=True, type=Path, help="動画ファイルまたは動画フォルダ")
     parser.add_argument("--output", default=Path("output"), type=Path, help="出力先フォルダ")
+    parser.add_argument("--name-mode", choices=["original", "common", "custom"], default="original", help="出力名の決め方")
+    parser.add_argument("--output-name", default="", help="--name-mode custom で使う出力名")
+    parser.add_argument("--name-date", choices=["none", "date", "datetime"], default="none", help="出力名に付ける日付・日時")
     parser.add_argument(
         "--recursive", action="store_true", help="フォルダ入力時にサブフォルダも処理"
     )

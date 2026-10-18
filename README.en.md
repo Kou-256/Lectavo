@@ -2,6 +2,10 @@
 
 Settings dropdowns and numeric inputs ignore mouse-wheel value changes, preventing accidental edits while scrolling. Use clicks, keyboard controls, or direct numeric entry to change settings.
 
+Scrolling also leaves keyboard focus unchanged. Under **File names**, choose original names, the common part of video names, or a custom name, then optionally append a date or timestamp. A preview shows the resulting PDF and transcript names. The same base name applies to PDF, TXT, SRT, and Markdown; combined images and Markdown links stay aligned. Per-video custom names retain the source name for distinction. Naming preferences are saved. To keep separate runs, append a timestamp; reusing a name updates the existing outputs.
+
+CLI examples: `--name-mode common --name-date datetime` or `--name-mode custom --output-name "Lecture notes"`.
+
 [日本語](README.md) | [English](README.en.md) | [Website](https://lectavo.vercel.app) | [Download latest release](https://github.com/Kou-256/Lectavo/releases/latest)
 
 Lectavo is a Windows desktop application that turns lecture and presentation videos into deduplicated slide PDFs, timestamped transcripts, SRT subtitles, and slide-aligned Markdown lecture notes.

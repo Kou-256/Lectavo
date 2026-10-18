@@ -11,8 +11,17 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QWheelEvent
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QComboBox, QDoubleSpinBox, QSpinBox
+from PySide6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QDoubleSpinBox,
+    QLineEdit,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
+from movie_slide_notes.gui.controls import NoWheelComboBox, NoWheelDoubleSpinBox, NoWheelSpinBox
 from movie_slide_notes.gui.main_window import MainWindow
 
 
@@ -64,6 +73,35 @@ class ScrollSafeSettingsTests(unittest.TestCase):
                     self.assertEqual(combo.currentIndex(), 1)
                 finally:
                     window.close()
+
+    def test_wheel_does_not_take_focus_or_show_focus_border(self) -> None:
+        host = QWidget()
+        layout = QVBoxLayout(host)
+        anchor = QLineEdit()
+        layout.addWidget(anchor)
+        controls = [NoWheelComboBox(), NoWheelSpinBox(), NoWheelDoubleSpinBox()]
+        controls[0].addItems(["First", "Second"])
+        for control in controls:
+            layout.addWidget(control)
+        try:
+            host.show()
+            host.activateWindow()
+            anchor.setFocus()
+            self.app.processEvents()
+            for control in controls:
+                self.assertFalse(control.focusPolicy() & Qt.WheelFocus & ~Qt.StrongFocus)
+                QTest.wheelEvent(
+                    host.windowHandle(),
+                    control.mapTo(host, control.rect().center()),
+                    QPoint(0, -120),
+                )
+                self.app.processEvents()
+                self.assertFalse(control.hasFocus())
+                self.assertIs(self.app.focusWidget(), anchor)
+            controls[0].setFocus(Qt.TabFocusReason)
+            self.assertTrue(controls[0].hasFocus())
+        finally:
+            host.close()
 
 
 if __name__ == "__main__":
