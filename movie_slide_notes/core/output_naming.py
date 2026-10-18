@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+DEFAULT_NAMING_MODE = "common"
+DEFAULT_DATE_STYLE = "datetime"
+
 
 @dataclass(frozen=True)
 class OutputNamingConfig:

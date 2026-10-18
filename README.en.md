@@ -6,6 +6,8 @@ Scrolling also leaves keyboard focus unchanged. Under **File names**, choose ori
 
 CLI examples: `--name-mode common --name-date datetime` or `--name-mode custom --output-name "Lecture notes"`.
 
+GUI and CLI default to the common video name with a timestamp. The old GUI defaults are migrated once; subsequent choices are preserved. Use `--name-mode original --name-date none` for legacy CLI filenames.
+
 [日本語](README.md) | [English](README.en.md) | [Website](https://lectavo.vercel.app) | [Download latest release](https://github.com/Kou-256/Lectavo/releases/latest)
 
 Lectavo is a Windows desktop application that turns lecture and presentation videos into deduplicated slide PDFs, timestamped transcripts, SRT subtitles, and slide-aligned Markdown lecture notes.

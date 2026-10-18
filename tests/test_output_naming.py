@@ -9,10 +9,12 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
 
 from movie_slide_notes.core.output_naming import OutputNamingConfig, common_video_name, output_stem
 from movie_slide_notes.gui.main_window import MainWindow, set_combo_data
+from movie_slide_notes.main import build_parser, build_processing_options
 
 
 class OutputNamingTests(unittest.TestCase):
@@ -54,8 +56,12 @@ class OutputNamingTests(unittest.TestCase):
                 "movie_slide_notes.gui.main_window.user_config_dir", return_value=Path(directory)
             ):
                 window = MainWindow()
+                self.assertEqual(window.naming_mode.currentData(), "common")
+                self.assertEqual(window.naming_date.currentData(), "datetime")
+                set_combo_data(window.naming_date, "none")
                 window.videos = [Path("講義-13-2.mp4"), Path("講義-13-10.mp4")]
                 set_combo_data(window.naming_mode, "common")
+                window._update_naming_preview()
                 self.assertIn("講義-13_slides.pdf", window.naming_preview.text())
                 set_combo_data(window.naming_mode, "custom")
                 window.custom_output_name.setText("復習資料")
@@ -69,6 +75,42 @@ class OutputNamingTests(unittest.TestCase):
                 self.assertEqual(restored.custom_output_name.text(), "復習資料")
                 restored.close()
         app.processEvents()
+
+    def test_legacy_defaults_migrate_once_and_later_choices_are_preserved(self) -> None:
+        app = QApplication.instance() or QApplication([])
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / "settings.ini"), QSettings.IniFormat)
+            settings.setValue("naming_mode", "original")
+            settings.setValue("naming_date", "none")
+            settings.sync()
+            with patch(
+                "movie_slide_notes.gui.main_window.user_config_dir", return_value=Path(directory)
+            ):
+                first = MainWindow()
+                self.assertEqual(first.naming_mode.currentData(), "common")
+                self.assertEqual(first.naming_date.currentData(), "datetime")
+                set_combo_data(first.naming_mode, "original")
+                set_combo_data(first.naming_date, "none")
+                first.settings.sync()
+                first.close()
+                second = MainWindow()
+                self.assertEqual(second.naming_mode.currentData(), "original")
+                self.assertEqual(second.naming_date.currentData(), "none")
+                second.close()
+        app.processEvents()
+
+    def test_cli_defaults_and_legacy_override(self) -> None:
+        parser = build_parser()
+        config = build_processing_options(
+            parser.parse_args(["--input", "lecture.mp4"])
+        ).output_naming
+        self.assertEqual((config.mode, config.date_style), ("common", "datetime"))
+        legacy = build_processing_options(
+            parser.parse_args(
+                ["--input", "lecture.mp4", "--name-mode", "original", "--name-date", "none"]
+            )
+        ).output_naming
+        self.assertEqual((legacy.mode, legacy.date_style), ("original", "none"))
 
 
 if __name__ == "__main__":

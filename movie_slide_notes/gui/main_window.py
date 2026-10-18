@@ -29,7 +29,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from movie_slide_notes.core.output_naming import OutputNamingConfig, output_stem
+from movie_slide_notes.core.output_naming import (
+    DEFAULT_DATE_STYLE,
+    DEFAULT_NAMING_MODE,
+    OutputNamingConfig,
+    output_stem,
+)
 from movie_slide_notes.core.processor import (
     BatchResult,
     OperationOptions,
@@ -636,8 +641,14 @@ class MainWindow(QMainWindow):
         if output_mode not in {"combined", "per_video"}:
             output_mode = "combined"
         set_combo_data(self.output_mode_combo, output_mode)
-        set_combo_data(self.naming_mode, self.settings.value("naming_mode", "original"))
-        set_combo_data(self.naming_date, self.settings.value("naming_date", "none"))
+        naming_mode = str(self.settings.value("naming_mode", DEFAULT_NAMING_MODE))
+        naming_date = str(self.settings.value("naming_date", DEFAULT_DATE_STYLE))
+        if not self.settings.value("naming_defaults_v2", False, type=bool):
+            if naming_mode == "original" and naming_date == "none":
+                naming_mode, naming_date = DEFAULT_NAMING_MODE, DEFAULT_DATE_STYLE
+            self.settings.setValue("naming_defaults_v2", True)
+        set_combo_data(self.naming_mode, naming_mode)
+        set_combo_data(self.naming_date, naming_date)
         self.custom_output_name.setText(str(self.settings.value("custom_output_name", "")))
         self._update_naming_preview()
         self._output_mode_changed()
