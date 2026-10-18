@@ -36,6 +36,8 @@ def common_video_name(paths: Sequence[Path]) -> str:
     stems = [Path(path).stem for path in paths]
     if not stems:
         return "Lectavo"
+    if len(set(stems)) == 1:
+        return safe_output_name(stems[0])
     prefix = os.path.commonprefix(stems)
     # A common prefix can stop halfway through a sequence number (e.g. 10 and 11).
     if prefix and any(len(stem) > len(prefix) and stem[len(prefix)].isdigit() for stem in stems):

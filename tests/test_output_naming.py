@@ -24,6 +24,7 @@ class OutputNamingTests(unittest.TestCase):
             common_video_name([Path("lecture10.mp4"), Path("lecture11.mp4")]), "lecture"
         )
         self.assertEqual(common_video_name([Path("講義 動画.mp4")]), "講義 動画")
+        self.assertEqual(common_video_name([Path("講義 (入門).mp4")]), "講義 (入門)")
         self.assertEqual(common_video_name([Path("apple.mp4"), Path("banana.mp4")]), "Lectavo")
 
     def test_safe_custom_names_and_consistent_timestamp(self) -> None:
