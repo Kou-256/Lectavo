@@ -10,7 +10,7 @@
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta
       name="description"
-      content="Lectavoは講義動画から重複のないスライドPDF、タイムスタンプ付き文字起こし、講義ノートを自動生成する無料のWindowsアプリです。faster-whisperとNVIDIA CUDAに対応しています。"
+      content="Lectavoは講義動画からスライドPDF、動画・音声から文字起こしと講義ノートを作る無料のWindowsアプリです。MP3・M4A・WAV、NVIDIA CUDA、画面上の範囲指定、同意後のアプリ更新に対応。"
     />
     <link rel="canonical" href="https://lectavo.vercel.app/" />
     <link rel="alternate" hreflang="ja" href="https://lectavo.vercel.app/" />
@@ -76,7 +76,7 @@
             "applicationCategory": "EducationalApplication",
             "applicationSubCategory": "Lecture note generator",
             "operatingSystem": "Windows 10, Windows 11",
-            "softwareVersion": "0.2.1",
+            "softwareVersion": "0.3.0",
             "softwareRequirements": "Windows x64",
             "featureList": [
               "スライド変化検出",
@@ -84,7 +84,10 @@
               "スライドPDF生成",
               "faster-whisper文字起こし",
               "NVIDIA CUDAアクセラレーション",
-              "講義ノートMarkdown生成"
+              "講義ノートMarkdown生成",
+              "MP3・M4A・WAV文字起こし",
+              "プレビュー上のスライド範囲指定",
+              "ユーザー同意後のアプリ更新"
             ],
             "isAccessibleForFree": true,
             "offers": {
@@ -132,7 +135,7 @@
           <p class="hero-lead">講義動画を、<br />PDFと文字起こしへ。</p>
           <p class="hero-description">
             スライドの切り替わりを見つけ、重複を除き、faster-whisperで発話を整理。
-            複数の動画も一つの講義資料にまとめます。
+            複数の動画も一つの講義資料に。MP3・M4A・WAVの録音も文字起こしできます。
           </p>
           <div class="hero-actions">
             <a
@@ -147,7 +150,7 @@
               GitHubで見る
             </a>
           </div>
-          <p class="release-meta">Version 0.2.1 ・ 無料 ・ Python不要</p>
+          <p class="release-meta">Version 0.3.0 ・ 無料 ・ Python不要</p>
         </div>
 
         <div class="hero-status" aria-label="Lectavoの処理機能">
@@ -283,7 +286,7 @@
             <span>TXT</span>
             <div>
               <h3>読める文字起こし</h3>
-              <p>自然な言語検出とタイムスタンプ付きTXT・SRTに対応します。</p>
+              <p>動画はもちろん、MP3・M4A・WAVの音声にも対応。自然な言語検出とタイムスタンプ付きTXT・SRTで、録音を読み返せる形へ。</p>
             </div>
           </article>
           <article>
@@ -292,6 +295,23 @@
               <h3>スライド別の講義ノート</h3>
               <p>画像と、そのスライドが表示されていた間の発話をMarkdownへまとめます。</p>
             </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="features features--updates reveal" aria-label="Lectavo 0.3の新機能">
+        <div class="feature-lines">
+          <article>
+            <span>AREA</span>
+            <div><h3>残したい範囲を、画面で。</h3><p>動画のプレビューを見ながら、スライドとページ番号の範囲をドラッグで指定。登壇者や操作パネルを除き、選んだ範囲だけを画像に残せます。</p></div>
+          </article>
+          <article>
+            <span>UPDATE</span>
+            <div><h3>更新は、あなたのタイミングで。</h3><p>新しいバージョンをバックグラウンドで確認。許可を得てからダウンロードし、ファイルを検証。インストール前にも確認します。</p></div>
+          </article>
+          <article>
+            <span>STARTUP</span>
+            <div><h3>開いたら、すぐ次の操作へ。</h3><p>画像・音声の処理ライブラリは必要なときに読み込む構成へ。すでに起動していれば既存のウィンドウを表示し、重複起動も防ぎます。</p></div>
           </article>
         </div>
       </section>
@@ -323,7 +343,15 @@
             src="/screenshots/lectavo-home.png"
             alt="動画を選択できるLectavoのホーム画面"
           />
-          <figcaption>実際のLectavo 0.2.1 Windowsアプリ画面</figcaption>
+          <figcaption>実際のLectavo 0.3.0 Windowsアプリ画面</figcaption>
+        </figure>
+        <figure class="screen-detail reveal">
+          <img src="/screenshots/lectavo-region.png" alt="動画上でスライドを緑の枠、ページ番号を黄の枠で指定するLectavoの範囲選択画面" width="900" height="680" loading="lazy" />
+          <figcaption>プレビューの時刻を変えて確認。ドラッグでも数値入力でも範囲を指定できます。</figcaption>
+        </figure>
+        <figure class="screen-detail reveal">
+          <img src="/screenshots/lectavo-audio.png" alt="MP3とM4Aを追加し、文字起こしと講義ノートを選択したLectavoの画面" width="1280" height="800" loading="lazy" />
+          <figcaption>音声ファイルを追加すると、文字起こしとノートの出力へ自動で切り替わります。</figcaption>
         </figure>
       </section>
 
@@ -354,7 +382,7 @@
           <a class="text-link text-link--light" href="https://github.com/Kou-256/Lectavo/releases/latest">
             リリースノートとSHA-256
           </a>
-          <small>Version 0.2.1 ・ MIT License ・ 未署名</small>
+          <small>Version 0.3.0 ・ MIT License ・ 未署名</small>
         </div>
       </section>
     </main>

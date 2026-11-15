@@ -44,6 +44,7 @@ class TranscriptionResult:
     srt_path: Path
     audio_path: Path | None
     warning: str | None = None
+    duration_seconds: float | None = None
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,9 @@ def transcribe_video(
 
     try:
         extract_audio(video_path, audio_path, config.ffmpeg, cancel_event)
+        if duration_seconds is None:
+            with wave.open(str(audio_path), "rb") as audio:
+                duration_seconds = audio.getnframes() / audio.getframerate()
         check_cancelled(cancel_event)
 
         emit_progress(
@@ -156,6 +160,7 @@ def transcribe_video(
         srt_path=srt_path,
         audio_path=audio_path if config.keep_audio else None,
         warning=warning,
+        duration_seconds=duration_seconds,
     )
 
 

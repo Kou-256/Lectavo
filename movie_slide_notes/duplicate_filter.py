@@ -3,13 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-import cv2
-import imagehash
-import numpy as np
-from PIL import Image
-from skimage.metrics import structural_similarity
-
+from .lazy_imports import LazyModule
 from .slide_detector import crop_slide_content
+
+cv2 = LazyModule("cv2")
+np = LazyModule("numpy")
+imagehash = LazyModule("imagehash")
+Image = LazyModule("PIL.Image")
 
 
 @dataclass
@@ -110,6 +110,8 @@ def canonical_image(frame: np.ndarray, compare_width: int) -> np.ndarray:
 
 
 def compare_ssim(left: np.ndarray, right: np.ndarray) -> float:
+    from skimage.metrics import structural_similarity
+
     if left.shape != right.shape:
         right = cv2.resize(right, (left.shape[1], left.shape[0]), interpolation=cv2.INTER_AREA)
     return float(structural_similarity(left, right, data_range=255))

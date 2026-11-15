@@ -6,11 +6,11 @@ from pathlib import Path
 from threading import Event
 from typing import Any
 
-import cv2
-import numpy as np
-from skimage.metrics import structural_similarity
+from .lazy_imports import LazyModule
+from .media import VIDEO_EXTENSIONS as VIDEO_EXTENSIONS
 
-VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"}
+cv2 = LazyModule("cv2")
+np = LazyModule("numpy")
 ProgressCallback = Callable[[str, int, int | None, str], None]
 
 
@@ -34,6 +34,7 @@ class SlideDetectionConfig:
     page_region: tuple[float, float, float, float] = (0.75, 0.80, 0.25, 0.20)
     page_diff_ratio_threshold: float = 0.012
     page_min_component_area: int = 8
+    slide_region: tuple[float, float, float, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -119,6 +120,8 @@ class SlideDetector:
                     break
 
                 stats.frames_checked += 1
+                if self.config.slide_region is not None:
+                    frame = crop_region(frame, self.config.slide_region)
                 prepared = prepare_frame(frame, self.config.compare_width)
 
                 if last_reference is None:
@@ -190,14 +193,20 @@ class SlideDetector:
         return slides, stats
 
     def compare_frames(self, previous: np.ndarray, current: np.ndarray) -> SlideChangeDetail:
+        from skimage.metrics import structural_similarity
+
         overall = component_diff_stats(
             previous,
             current,
             threshold=self.config.diff_threshold,
             min_component_area=self.config.min_component_area,
         )
-        prev_page = crop_page_region(previous, self.config.page_region)
-        curr_page = crop_page_region(current, self.config.page_region)
+        prev_page = crop_page_region(
+            previous, self.config.page_region, self.config.slide_region is None
+        )
+        curr_page = crop_page_region(
+            current, self.config.page_region, self.config.slide_region is None
+        )
         if curr_page.shape != prev_page.shape:
             curr_page = cv2.resize(
                 curr_page,
@@ -359,9 +368,10 @@ def crop_region(image: np.ndarray, region: tuple[float, float, float, float]) ->
 def crop_page_region(
     image: np.ndarray,
     region: tuple[float, float, float, float],
+    auto_crop: bool = True,
 ) -> np.ndarray:
     """Crop the configured page-number region inside the detected slide surface."""
-    return crop_region(crop_slide_content(image), region)
+    return crop_region(crop_slide_content(image) if auto_crop else image, region)
 
 
 def crop_slide_content(image: np.ndarray) -> np.ndarray:

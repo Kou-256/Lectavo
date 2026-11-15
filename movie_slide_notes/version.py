@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 APP_NAME = "Lectavo"
-APP_DESCRIPTION = "講義動画からスライドと文字起こしを生成するアプリ"
+APP_DESCRIPTION = "動画・音声から資料と文字起こしを生成するアプリ"
 APP_PUBLISHER = "Kou Hashizume"

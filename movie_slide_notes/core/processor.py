@@ -3,14 +3,12 @@ from __future__ import annotations
 import re
 import shutil
 import tempfile
+from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from threading import Event
-
-import cv2
-import numpy as np
 
 from ..aligner import (
     CombinedSlideNote,
@@ -20,9 +18,10 @@ from ..aligner import (
     write_slide_markdown,
 )
 from ..duplicate_filter import DuplicateConfig, DuplicateFilter
+from ..lazy_imports import LazyModule
+from ..media import AUDIO_EXTENSIONS, MEDIA_EXTENSIONS
 from ..pdf_writer import write_pdf
 from ..slide_detector import (
-    VIDEO_EXTENSIONS,
     DetectionStats,
     SlideDetectionCancelled,
     SlideDetectionConfig,
@@ -44,6 +43,9 @@ from ..transcriber import (
     format_timestamp as format_transcript_timestamp,
 )
 from .output_naming import OutputNamingConfig, output_stem
+
+cv2 = LazyModule("cv2")
+np = LazyModule("numpy")
 
 
 @dataclass(frozen=True)
@@ -205,6 +207,8 @@ def process_batch(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     videos = sorted((Path(path) for path in video_paths), key=natural_video_sort_key)
+    stems = [output_stem([path], options.output_naming, combined=False) for path in videos]
+    stem_counts = Counter(stem.casefold() for stem in stems)
     results: list[ProcessResult] = []
     all_slides: list[SlideRecord] = []
     total_units = max(1, len(videos) * 100)
@@ -247,6 +251,13 @@ def process_batch(
                     cancel_event=cancel_event,
                     overall_base=(index - 1) * 100,
                     overall_total=total_units,
+                    output_stem_override=None
+                    if combined_mode
+                    else (
+                        stems[index - 1]
+                        if stem_counts[stems[index - 1].casefold()] == 1
+                        else f"{stems[index - 1]}_{index:03d}"
+                    ),
                 )
                 results.append(result)
                 all_slides.extend(result.slides)
@@ -348,6 +359,16 @@ def finalize_combined_outputs(
         write_combined_slide_markdown(
             "Lectavo 講義ノート", combined_notes, batch.combined_markdown_path
         )
+        audio_notes = [
+            audio_markdown(result.video_path.stem, result.transcription.segments)
+            for result in batch.results
+            if result.video_path.suffix.lower() in AUDIO_EXTENSIONS and result.transcription
+        ]
+        if audio_notes:
+            if not combined_notes:
+                batch.combined_markdown_path.write_text("# Lectavo 講義ノート\n", encoding="utf-8")
+            with batch.combined_markdown_path.open("a", encoding="utf-8") as handle:
+                handle.write("\n\n" + "\n\n".join(audio_notes))
         emit_log(log_callback, f"統合講義ノートを生成しました: {batch.combined_markdown_path}")
 
 
@@ -386,7 +407,8 @@ def collect_combined_slides(
             )
 
     slides_dir = output_dir / slides_subdir
-    slides_dir.mkdir(parents=True, exist_ok=True)
+    if unique:
+        slides_dir.mkdir(parents=True, exist_ok=True)
     final_slides: list[SlideRecord] = []
     notes: list[CombinedSlideNote] = []
     for index, item in enumerate(unique, start=1):
@@ -458,6 +480,8 @@ def read_slide_image(path: Path) -> np.ndarray | None:
 def result_duration(result: ProcessResult) -> float:
     if result.stats and result.stats.duration_seconds:
         return float(result.stats.duration_seconds)
+    if result.transcription and result.transcription.duration_seconds is not None:
+        return result.transcription.duration_seconds
     if result.transcription and result.transcription.segments:
         return max(segment.end for segment in result.transcription.segments)
     if result.slides:
@@ -482,15 +506,23 @@ def process_video(
     cancel_event: Event | None = None,
     overall_base: int = 0,
     overall_total: int = 100,
+    output_stem_override: str | None = None,
 ) -> ProcessResult:
     if is_cancelled(cancel_event):
         raise ProcessingCancelled("処理をキャンセルしました。")
 
     video_path = Path(video_path)
-    video_stem = output_stem([video_path], options.output_naming, combined=False)
+    video_stem = output_stem_override or output_stem(
+        [video_path], options.output_naming, combined=False
+    )
     video_output_dir = output_dir / video_stem if options.per_video_dirs else output_dir
     video_output_dir.mkdir(parents=True, exist_ok=True)
     result = ProcessResult(video_path=video_path, output_dir=video_output_dir)
+    audio_only = video_path.suffix.lower() in AUDIO_EXTENSIONS
+    if audio_only and not options.operations.transcribe_audio:
+        result.error = "音声ファイルを処理するには文字起こしを有効にしてください。"
+        emit_log(log_callback, result.error)
+        return result
 
     emit_log(log_callback, f"{video_path.name}: 処理を開始しました")
     emit_progress(
@@ -506,7 +538,7 @@ def process_video(
         overall_total,
     )
 
-    if options.operations.extract_slides:
+    if options.operations.extract_slides and not audio_only:
         emit_log(log_callback, f"{video_path.name}: スライド解析を開始しました")
         detector = SlideDetector(options.slide_config)
         duplicate_filter = DuplicateFilter(options.duplicate_config)
@@ -545,7 +577,7 @@ def process_video(
             f"{video_path.name}: 候補 {stats.candidates} 件、重複 {stats.duplicates} 件、保存 {len(slides)} 件",
         )
 
-    if options.operations.generate_pdf:
+    if options.operations.generate_pdf and not audio_only:
         if is_cancelled(cancel_event):
             raise ProcessingCancelled("PDF生成をキャンセルしました。")
         emit_stage(
@@ -610,6 +642,8 @@ def process_video(
             )
         except TranscriberUnavailableError as exc:
             warning = describe_exception(exc)
+            if audio_only:
+                result.error = warning
             result.warnings.append(warning)
             emit_log(log_callback, f"{video_path.name}: 文字起こしをスキップしました - {warning}")
         except TranscriptionCancelled as exc:
@@ -634,7 +668,13 @@ def process_video(
         )
         segments = result.transcription.segments if result.transcription else []
         result.markdown_path = video_output_dir / f"{video_stem}_slides.md"
-        write_slide_markdown(video_stem, result.slides, segments, result.markdown_path)
+        if audio_only:
+            result.markdown_path = video_output_dir / f"{video_stem}_notes.md"
+            result.markdown_path.write_text(
+                audio_markdown(video_path.stem, segments), encoding="utf-8"
+            )
+        else:
+            write_slide_markdown(video_stem, result.slides, segments, result.markdown_path)
         emit_log(log_callback, f"{video_path.name}: Markdownを生成しました: {result.markdown_path}")
 
     final_stage = "error" if result.error else "done"
@@ -656,13 +696,13 @@ def process_video(
 def discover_videos(input_path: Path, recursive: bool = False) -> list[Path]:
     input_path = Path(input_path)
     if input_path.is_file():
-        return [input_path] if input_path.suffix.lower() in VIDEO_EXTENSIONS else []
+        return [input_path] if input_path.suffix.lower() in MEDIA_EXTENSIONS else []
     if not input_path.is_dir():
         return []
 
     iterator = input_path.rglob("*") if recursive else input_path.iterdir()
     return sorted(
-        (path for path in iterator if path.is_file() and path.suffix.lower() in VIDEO_EXTENSIONS),
+        (path for path in iterator if path.is_file() and path.suffix.lower() in MEDIA_EXTENSIONS),
         key=natural_video_sort_key,
     )
 
@@ -684,6 +724,12 @@ def apply_preset(config: SlideDetectionConfig, preset_name: str) -> SlideDetecti
 
 
 def validate_options(options: ProcessingOptions) -> None:
+    if options.slide_config.slide_region is not None and not valid_region(
+        options.slide_config.slide_region
+    ):
+        raise ProcessingConfigurationError("スライド範囲は画面内の矩形で指定してください。")
+    if not valid_region(options.slide_config.page_region):
+        raise ProcessingConfigurationError("ページ番号の範囲はスライド内の矩形で指定してください。")
     try:
         output_stem([], options.output_naming, combined=True)
     except ValueError as exc:
@@ -699,6 +745,23 @@ def is_cuda_available() -> bool:
 def sanitize_stem(stem: str) -> str:
     sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "_", stem).strip(" ._")
     return sanitized or "video"
+
+
+def valid_region(region) -> bool:
+    return (
+        len(region) == 4
+        and all(isinstance(value, (int, float)) and 0 <= value <= 1 for value in region)
+        and region[2] > 0
+        and region[3] > 0
+        and region[0] + region[2] <= 1.000001
+        and region[1] + region[3] <= 1.000001
+    )
+
+
+def audio_markdown(title: str, segments) -> str:
+    lines = [f"# {title}", "", "## Transcript", ""]
+    lines.extend(f"[{format_transcript_timestamp(item.start)}] {item.text}" for item in segments)
+    return "\n".join(lines) + "\n"
 
 
 def describe_exception(exc: Exception) -> str:

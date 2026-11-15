@@ -22,7 +22,8 @@ from movie_slide_notes.core.processor import (
     process_batch,
 )
 from movie_slide_notes.duplicate_filter import DuplicateConfig
-from movie_slide_notes.slide_detector import VIDEO_EXTENSIONS, SlideDetectionConfig
+from movie_slide_notes.media import MEDIA_EXTENSIONS
+from movie_slide_notes.slide_detector import SlideDetectionConfig
 from movie_slide_notes.transcriber import TranscriptionConfig
 
 
@@ -34,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = args.output.expanduser().resolve()
     videos = discover_videos(input_path, recursive=args.recursive)
     if not videos:
-        supported = ", ".join(sorted(VIDEO_EXTENSIONS))
+        supported = ", ".join(sorted(MEDIA_EXTENSIONS))
         print(f"処理対象の動画が見つかりませんでした。対応形式: {supported}")
         return 1
 
@@ -86,6 +87,7 @@ def build_processing_options(args: argparse.Namespace) -> ProcessingOptions:
             page_region=args.page_region,
             page_diff_ratio_threshold=args.page_diff_ratio_threshold,
             page_min_component_area=args.page_min_component_area,
+            slide_region=args.slide_region,
         ),
         duplicate_config=DuplicateConfig(
             phash_threshold=args.phash_threshold,
@@ -120,13 +122,31 @@ def cli_progress(event: ProgressEvent) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="Lectavo",
-        description="講義動画からスライドPDF、文字起こし、スライド別Markdownを生成します。",
+        description="動画からスライドPDF、動画・音声から文字起こしとMarkdownを生成します。",
     )
-    parser.add_argument("--input", required=True, type=Path, help="動画ファイルまたは動画フォルダ")
+    parser.add_argument(
+        "--input", required=True, type=Path, help="動画・音声ファイルまたはフォルダ"
+    )
     parser.add_argument("--output", default=Path("output"), type=Path, help="出力先フォルダ")
-    parser.add_argument("--name-mode", choices=["original", "common", "custom"], default=DEFAULT_NAMING_MODE, help="出力名の決め方")
+    parser.add_argument(
+        "--slide-region",
+        type=parse_page_region,
+        default=None,
+        help="スライド抽出範囲 X,Y,幅,高さ（0〜1）",
+    )
+    parser.add_argument(
+        "--name-mode",
+        choices=["original", "common", "custom"],
+        default=DEFAULT_NAMING_MODE,
+        help="出力名の決め方",
+    )
     parser.add_argument("--output-name", default="", help="--name-mode custom で使う出力名")
-    parser.add_argument("--name-date", choices=["none", "date", "datetime"], default=DEFAULT_DATE_STYLE, help="出力名に付ける日付・日時")
+    parser.add_argument(
+        "--name-date",
+        choices=["none", "date", "datetime"],
+        default=DEFAULT_DATE_STYLE,
+        help="出力名に付ける日付・日時",
+    )
     parser.add_argument(
         "--recursive", action="store_true", help="フォルダ入力時にサブフォルダも処理"
     )

@@ -150,6 +150,12 @@ try {
     $ReleaseNotes = @"
 Lectavo $Version
 
+- 0.3.0: MP3 / M4A / WAV transcription with TXT, SRT, and Markdown output.
+- 0.3.0: Select slide crop and page-number regions on a video preview.
+- 0.3.0: Check updates in the background; ask before download and installation; verify SHA-256.
+- 0.3.0: Faster startup through deferred processing libraries and GPU diagnostics.
+- 0.3.0: Single-instance activation and SVG navigation icons.
+
 - Bundles the official NVIDIA CUDA 12 cuBLAS runtime so supported NVIDIA GPUs can run faster-whisper.
 - Diagnoses missing CUDA 12 cuBLAS and cuDNN runtime DLLs before transcription and explains CPU fallback.
 - Adds Japanese and English application UI; Japanese remains the default.

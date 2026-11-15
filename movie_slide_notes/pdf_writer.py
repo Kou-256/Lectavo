@@ -3,12 +3,12 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
-from PIL import Image
-from reportlab.lib.utils import ImageReader
-from reportlab.pdfgen.canvas import Canvas
-
 
 def write_pdf(image_paths: Iterable[Path], output_pdf: Path, margin: float = 0.0) -> Path:
+    from PIL import Image
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfgen.canvas import Canvas
+
     images = [Path(path) for path in image_paths]
     if not images:
         raise ValueError("PDFにする画像がありません。")

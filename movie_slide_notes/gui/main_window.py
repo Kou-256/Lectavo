@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, Qt, QThread, QTimer, QUrl
+from PySide6.QtCore import QProcess, QSettings, QSize, Qt, QThread, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QDragEnterEvent, QDropEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QProgressBar,
+    QProgressDialog,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -53,9 +54,8 @@ from movie_slide_notes.gui.i18n import (
 )
 from movie_slide_notes.gui.settings_widget import ProcessingSettingsWidget
 from movie_slide_notes.gui.worker import ProcessingWorker
+from movie_slide_notes.media import AUDIO_EXTENSIONS, MEDIA_EXTENSIONS, VIDEO_EXTENSIONS
 from movie_slide_notes.paths import resource_path, user_config_dir, user_log_dir
-from movie_slide_notes.slide_detector import VIDEO_EXTENSIONS
-from movie_slide_notes.transcriber import inspect_cuda_runtime
 from movie_slide_notes.version import APP_DESCRIPTION, APP_NAME, APP_PUBLISHER, __version__
 
 
@@ -96,6 +96,21 @@ class MainWindow(QMainWindow):
         self._apply_ui_language()
         self._set_workflow_state("empty")
         self._update_responsive()
+        from .update_manager import UpdateManager
+
+        self.updater = UpdateManager(self)
+        self._manual_update_check = False
+        self.update_progress_dialog = None
+        self.updater.available.connect(self._update_available)
+        self.updater.checked.connect(self._update_checked)
+        self.updater.failed.connect(self._update_failed)
+        self.updater.progress.connect(self._update_progress)
+        self.updater.downloaded.connect(self._update_downloaded)
+        self.updater.cancelled.connect(self._update_cancelled)
+        self.check_updates_button.clicked.connect(lambda: self.check_updates(True))
+        self.auto_update_check.toggled.connect(
+            lambda value: self.settings.setValue("check_updates_on_start", value)
+        )
 
     def _build_ui(self) -> None:
         central = QWidget()
@@ -124,6 +139,14 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(separator())
         self.nav_settings = nav_button("設定")
         self.nav_help = nav_button("ヘルプ")
+        for button, icon_name in [
+            (self.nav_home, "home"),
+            (self.nav_history, "history"),
+            (self.nav_settings, "settings"),
+            (self.nav_help, "help"),
+        ]:
+            button.setIcon(QIcon(str(resource_path("assets", "icons", f"{icon_name}.svg"))))
+            button.setIconSize(QSize(20, 20))
         sidebar_layout.addWidget(self.nav_settings)
         sidebar_layout.addWidget(self.nav_help)
         root.addWidget(self.sidebar)
@@ -138,6 +161,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.page_stack, 1)
 
         self.settings_widget = ProcessingSettingsWidget()
+        self.settings_widget.region_requested.connect(self.edit_region)
         self._build_home_page()
         self._build_history_page()
         self._build_settings_page()
@@ -158,7 +182,7 @@ class MainWindow(QMainWindow):
         empty_layout = empty_content.layout()
         empty_layout.setSpacing(24)
         empty_layout.addWidget(page_title("新しい処理"))
-        empty_layout.addWidget(subtitle("講義動画からスライドPDFと文字起こしを作成します。"))
+        empty_layout.addWidget(subtitle("動画や音声から資料と文字起こしを作成します。"))
 
         drop_zone = QFrame()
         drop_zone.setObjectName("DropZone")
@@ -167,15 +191,15 @@ class MainWindow(QMainWindow):
         drop_layout.setContentsMargins(32, 30, 32, 30)
         drop_layout.setSpacing(14)
         drop_layout.setAlignment(Qt.AlignCenter)
-        drop_title = QLabel("動画をここにドロップ")
+        drop_title = QLabel("動画・音声をここにドロップ")
         drop_title.setObjectName("SectionTitle")
         drop_title.setAlignment(Qt.AlignCenter)
-        drop_hint = subtitle("MP4、MOV、MKV、AVI、WEBM、M4V に対応")
+        drop_hint = subtitle("MP4・MOV・MKVなど / MP3・M4A・WAV")
         drop_hint.setAlignment(Qt.AlignCenter)
         drop_hint.setWordWrap(False)
-        self.select_video_button = QPushButton("動画を選択")
+        self.select_video_button = QPushButton("動画・音声を選択")
         self.select_video_button.setObjectName("PrimaryButton")
-        self.select_video_button.setAccessibleName("動画を選択")
+        self.select_video_button.setAccessibleName("動画・音声を選択")
         self.select_folder_link = QPushButton("フォルダを選択")
         self.select_folder_link.setObjectName("LinkButton")
         drop_layout.addWidget(drop_title)
@@ -197,7 +221,7 @@ class MainWindow(QMainWindow):
         ready_layout.addWidget(subtitle("出力内容を選んでから処理を開始します。"))
         ready_layout.addSpacing(8)
 
-        ready_layout.addWidget(section_title("動画"))
+        ready_layout.addWidget(section_title("入力ファイル"))
         ready_layout.addWidget(separator())
         self.video_list_layout = QVBoxLayout()
         self.video_list_layout.setSpacing(0)
@@ -304,10 +328,6 @@ class MainWindow(QMainWindow):
         self.device_combo = QComboBox()
         self.device_combo.addItem("CPU", "cpu")
         self.device_combo.addItem("GPU（CUDA）", "cuda")
-        cuda_status = inspect_cuda_runtime()
-        if not cuda_status.available:
-            self.device_combo.setItemText(1, "GPU（現在利用不可）")
-            self.device_combo.setItemData(1, cuda_status.message, Qt.ToolTipRole)
         self.device_combo.setToolTip(
             "文字起こしに使用する処理デバイスです。GPUが利用できない場合は理由を表示してCPUへ自動で切り替わります。"
         )
@@ -320,6 +340,13 @@ class MainWindow(QMainWindow):
         quality_grid.addWidget(self.details_button, 2, 0, 1, 2, alignment=Qt.AlignRight)
         quality_grid.setColumnStretch(1, 1)
         ready_layout.addLayout(quality_grid)
+        self.region_button = QPushButton("画面で検出範囲を指定")
+        self.region_button.clicked.connect(self.edit_region)
+        ready_layout.addWidget(self.region_button)
+        self.region_hint = QLabel()
+        self.region_hint.setWordWrap(True)
+        self.region_hint.setObjectName("Hint")
+        ready_layout.addWidget(self.region_hint)
 
         ready_layout.addSpacing(20)
         action_row = QHBoxLayout()
@@ -467,6 +494,18 @@ class MainWindow(QMainWindow):
         layout.addLayout(default_output_row)
         layout.addWidget(separator())
         layout.addWidget(self.settings_widget)
+        layout.addWidget(section_title("アプリの更新"))
+        layout.addWidget(separator())
+        self.auto_update_check = QCheckBox("起動時に更新を確認する")
+        self.auto_update_check.setChecked(
+            self.settings.value("check_updates_on_start", True, type=bool)
+        )
+        layout.addWidget(self.auto_update_check)
+        self.check_updates_button = QPushButton("更新を確認")
+        layout.addWidget(self.check_updates_button)
+        self.update_status = QLabel("ダウンロードとインストールの前に確認します。")
+        self.update_status.setWordWrap(True)
+        layout.addWidget(self.update_status)
         layout.addStretch(1)
         self.page_stack.addWidget(self.settings_page)
 
@@ -659,6 +698,7 @@ class MainWindow(QMainWindow):
         if geometry:
             self.restoreGeometry(geometry)
         self._operation_changed()
+        self._refresh_region_hint()
 
     def _save_settings(self) -> None:
         self.settings.setValue("output_path", self.output_path.text())
@@ -720,16 +760,16 @@ class MainWindow(QMainWindow):
         combined = self.output_mode_combo.currentData() == "combined"
         if combined:
             self.output_mode_hint.setText(
-                tr("すべての動画を1フォルダにまとめ、動画をまたぐ重複スライドも除去します。")
+                tr("入力ファイルを1フォルダにまとめ、動画をまたぐ重複スライドも除去します。")
             )
         else:
-            self.output_mode_hint.setText(
-                tr("動画ごとのフォルダにPDF、文字起こし、講義ノートを保存します。")
-            )
+            self.output_mode_hint.setText(tr("入力ファイルごとのフォルダに成果物を保存します。"))
         if not self._syncing:
             self._save_settings()
 
     def _operation_options(self) -> OperationOptions:
+        if self.videos and all(path.suffix.lower() in AUDIO_EXTENSIONS for path in self.videos):
+            return OperationOptions(False, False, True, True, False)
         return OperationOptions(
             extract_slides=(
                 self.output_images.isChecked()
@@ -746,14 +786,14 @@ class MainWindow(QMainWindow):
 
     def add_files(self) -> None:
         filters = (
-            tr("動画ファイル")
+            tr("動画・音声ファイル")
             + " ("
-            + " ".join(f"*{ext}" for ext in sorted(VIDEO_EXTENSIONS))
+            + " ".join(f"*{ext}" for ext in sorted(MEDIA_EXTENSIONS))
             + ");;"
             + tr("すべて")
             + " (*.*)"
         )
-        paths, _ = QFileDialog.getOpenFileNames(self, tr("動画を選択"), "", filters)
+        paths, _ = QFileDialog.getOpenFileNames(self, tr("動画・音声を選択"), "", filters)
         self.add_paths([Path(path) for path in paths])
 
     def add_folder(self) -> None:
@@ -768,7 +808,7 @@ class MainWindow(QMainWindow):
         for path in paths:
             if path.is_dir():
                 added.extend(discover_videos(path))
-            elif path.is_file() and path.suffix.lower() in VIDEO_EXTENSIONS:
+            elif path.is_file() and path.suffix.lower() in MEDIA_EXTENSIONS:
                 added.append(path)
         for path in added:
             resolved = path.resolve()
@@ -780,6 +820,7 @@ class MainWindow(QMainWindow):
             self._set_output_path(self.videos[0].parent / "Lectavo_output")
         self._refresh_video_list()
         self._update_naming_preview()
+        self._sync_input_kind()
         if self.videos:
             self._set_workflow_state("ready")
             self._select_page("home")
@@ -794,12 +835,14 @@ class MainWindow(QMainWindow):
             self.video_statuses.pop(resolved, None)
         self._refresh_video_list()
         self._update_naming_preview()
+        self._sync_input_kind()
         self._set_workflow_state("ready" if self.videos else "empty")
 
     def clear_videos(self) -> None:
         if self.worker is not None:
             return
         self.videos.clear()
+        self._sync_input_kind()
         self.video_statuses.clear()
         self._refresh_video_list()
         self._set_workflow_state("empty")
@@ -949,6 +992,10 @@ class MainWindow(QMainWindow):
     def _thread_finished(self) -> None:
         self._set_running(False)
         self.worker = None
+        pending = getattr(self, "_pending_installer", None)
+        if pending and not self._close_after_cancel:
+            self._pending_installer = None
+            QTimer.singleShot(0, lambda: self._update_downloaded(pending))
         self.thread = None
         self._refresh_video_list()
         self._cancel_requested = False
@@ -988,6 +1035,13 @@ class MainWindow(QMainWindow):
             control.setEnabled(not running)
         self.quality_combo.setEnabled(not running)
         self.device_combo.setEnabled(not running)
+        self.settings_widget.setEnabled(not running)
+        self.region_button.setEnabled(
+            not running and any(path.suffix.lower() in VIDEO_EXTENSIONS for path in self.videos)
+        )
+        self.check_updates_button.setEnabled(not running)
+        if not running:
+            self._sync_input_kind()
 
     def _set_workflow_state(self, state: str) -> None:
         self.workflow_state = state
@@ -1088,6 +1142,7 @@ class MainWindow(QMainWindow):
         )
         if answer != QMessageBox.Yes:
             return
+        self._manual_update_check = True
         self.history.clear()
         self._refresh_recent()
         self._refresh_history()
@@ -1273,6 +1328,7 @@ class MainWindow(QMainWindow):
                     tr(f"言語: {self.settings_widget.language_combo.currentText()}"),
                     tr(f"文字起こし品質: {self.settings_widget.model_combo.currentText()}"),
                     tr(f"処理デバイス: {device}"),
+                    self.region_hint.text(),
                 ]
             )
         )
@@ -1285,6 +1341,157 @@ class MainWindow(QMainWindow):
             timestamp=moment,
         )
 
+    def _sync_input_kind(self):
+        audio_only = bool(self.videos) and all(
+            path.suffix.lower() in AUDIO_EXTENSIONS for path in self.videos
+        )
+        was_audio = getattr(self, "_audio_only_ui", False)
+        for checkbox in (self.output_pdf, self.output_images):
+            checkbox.blockSignals(True)
+            if audio_only and not was_audio:
+                checkbox.setProperty("video_choice", checkbox.isChecked())
+                checkbox.setChecked(False)
+            elif was_audio and not audio_only:
+                checkbox.setChecked(bool(checkbox.property("video_choice")))
+            checkbox.setEnabled(not audio_only)
+            checkbox.blockSignals(False)
+        has_audio = any(path.suffix.lower() in AUDIO_EXTENSIONS for path in self.videos)
+        if has_audio:
+            self.output_lecture_notes.setChecked(True)
+            self.dependency_label.setText(tr("音声ファイルは文字起こしとノートを出力します。"))
+        self.output_lecture_notes.setEnabled(not has_audio)
+        self.region_button.setEnabled(
+            any(path.suffix.lower() in VIDEO_EXTENSIONS for path in self.videos)
+        )
+        self._audio_only_ui = audio_only
+
+    def _refresh_region_hint(self):
+        region = getattr(self.settings_widget, "slide_region", None)
+        self.region_hint.setText(
+            tr("検出範囲: 自動")
+            if region is None
+            else tr("検出範囲: 手動") + "  " + ", ".join(f"{value:.3f}" for value in region)
+        )
+
+    def edit_region(self):
+        videos = [path for path in self.videos if path.suffix.lower() in VIDEO_EXTENSIONS]
+        if not videos:
+            paths, _ = QFileDialog.getOpenFileNames(
+                self,
+                tr("プレビュー用の動画を選択"),
+                "",
+                "Video (*.mp4 *.mov *.mkv *.avi *.webm *.m4v)",
+            )
+            videos = [Path(path) for path in paths]
+        if not videos:
+            return
+        from .region_selector import RegionSelector
+
+        config = self.settings_widget.slide_config()
+        dialog = RegionSelector(videos, config.slide_region, config.page_region, self)
+        if dialog.exec() == QDialog.Accepted:
+            self.settings_widget.slide_region = None if dialog.auto_detect else dialog.canvas.slide
+            for field, value in zip(
+                (
+                    self.settings_widget.region_x,
+                    self.settings_widget.region_y,
+                    self.settings_widget.region_w,
+                    self.settings_widget.region_h,
+                ),
+                dialog.canvas.page,
+            ):
+                field.setValue(value)
+            self.settings_widget.region_w.setValue(
+                min(
+                    self.settings_widget.region_w.value(), 1 - self.settings_widget.region_x.value()
+                )
+            )
+            self.settings_widget.region_h.setValue(
+                min(
+                    self.settings_widget.region_h.value(), 1 - self.settings_widget.region_y.value()
+                )
+            )
+            self._refresh_region_hint()
+            self._save_settings()
+
+    def check_updates(self, manual=False):
+        if self.updater.busy:
+            return
+        self._manual_update_check = manual
+        self.update_status.setText(tr("更新を確認しています…"))
+        self.updater.check()
+
+    def _update_checked(self):
+        self.update_status.setText(tr("最新バージョンです。"))
+
+    def _update_available(self, info):
+        self.update_status.setText(tr("新しいバージョンがあります。") + f" {info.version}")
+        if self.worker is not None:
+            return
+        answer = QMessageBox.question(
+            self,
+            tr("Lectavoの更新"),
+            tr("新しいバージョンをダウンロードしますか？")
+            + f"\n{__version__} → {info.version} ({info.size / 1024 / 1024:.0f} MB)",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer != QMessageBox.Yes:
+            return
+        self.update_progress_dialog = QProgressDialog(
+            tr("更新をダウンロードしています…"), tr("キャンセル"), 0, 100, self
+        )
+        self.update_progress_dialog.setAutoClose(False)
+        self.update_progress_dialog.canceled.connect(self.updater.cancel)
+        self.update_progress_dialog.show()
+        self.updater.download(info)
+
+    def _update_progress(self, current, total):
+        if self.update_progress_dialog:
+            self.update_progress_dialog.setValue(int(current / max(1, total) * 100))
+
+    def _close_update_progress(self):
+        if self.update_progress_dialog:
+            self.update_progress_dialog.close()
+            self.update_progress_dialog.deleteLater()
+            self.update_progress_dialog = None
+
+    def _update_cancelled(self):
+        self._close_update_progress()
+        self.update_status.setText(tr("更新のダウンロードをキャンセルしました。"))
+
+    def _update_failed(self, message):
+        self._close_update_progress()
+        self.update_status.setText(tr(message))
+        if self._manual_update_check:
+            QMessageBox.warning(self, tr("アプリの更新"), tr(message))
+
+    def _update_downloaded(self, path):
+        self._close_update_progress()
+        self.update_status.setText(tr("更新ファイルの検証が完了しました。"))
+        if self.worker is not None:
+            self._pending_installer = path
+            QMessageBox.information(
+                self, tr("アプリの更新"), tr("処理完了後に更新を確認してください。")
+            )
+            return
+        answer = QMessageBox.question(
+            self,
+            tr("Lectavoの更新"),
+            tr("アプリを閉じてインストーラーを起動しますか？"),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer == QMessageBox.Yes:
+            started, _ = QProcess.startDetached(path, [])
+            if started:
+                self._save_settings()
+                self.close()
+            else:
+                QMessageBox.warning(
+                    self, tr("アプリの更新"), tr("インストーラーを起動できませんでした。")
+                )
+
     def _naming_changed(self) -> None:
         self._update_naming_preview()
         self._save_settings()
@@ -1295,7 +1502,9 @@ class MainWindow(QMainWindow):
         paths = self.videos if combined else self.videos[:1]
         try:
             stem = output_stem(paths, self._naming_config(moment), combined=combined)
-            self.naming_preview.setText(tr("出力名の例") + f": {stem}_slides.pdf / {stem}_transcript.txt")
+            self.naming_preview.setText(
+                tr("出力名の例") + f": {stem}_slides.pdf / {stem}_transcript.txt"
+            )
         except ValueError as exc:
             self.naming_preview.setText(tr(str(exc)))
 
@@ -1387,6 +1596,9 @@ class MainWindow(QMainWindow):
             return
         self._save_settings()
         self.settings.setValue("window_geometry", self.saveGeometry())
+        if hasattr(self, "updater") and self.updater.busy:
+            self._manual_update_check = False
+            self.updater.cancel()
         event.accept()
 
     def _update_responsive(self) -> None:

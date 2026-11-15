@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QLabel,
+    QPushButton,
     QSizePolicy,
     QToolButton,
     QVBoxLayout,
@@ -21,11 +22,12 @@ from movie_slide_notes.gui.controls import NoWheelDoubleSpinBox as QDoubleSpinBo
 from movie_slide_notes.gui.controls import NoWheelSpinBox as QSpinBox
 from movie_slide_notes.gui.i18n import tr
 from movie_slide_notes.slide_detector import SlideDetectionConfig
-from movie_slide_notes.transcriber import TranscriptionConfig, inspect_cuda_runtime
+from movie_slide_notes.transcriber import TranscriptionConfig
 
 
 class ProcessingSettingsWidget(QWidget):
     settings_changed = Signal()
+    region_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -53,6 +55,9 @@ class ProcessingSettingsWidget(QWidget):
         )
         processing_form.addRow("処理品質", self.preset_combo)
         root.addLayout(processing_form)
+        self.region_select_button = QPushButton("画面で検出範囲を指定")
+        self.region_select_button.clicked.connect(self.region_requested.emit)
+        root.addWidget(self.region_select_button)
 
         self.slide_detail_button = disclosure_button("スライド検出の詳細")
         self.slide_detail_panel = QWidget()
@@ -106,10 +111,10 @@ class ProcessingSettingsWidget(QWidget):
         region_layout = QGridLayout(region_box)
         region_layout.setContentsMargins(0, 0, 0, 0)
         region_layout.setHorizontalSpacing(8)
-        self.region_x = self._double_spin(0.0, 1.0, 0.75, 2)
-        self.region_y = self._double_spin(0.0, 1.0, 0.80, 2)
-        self.region_w = self._double_spin(0.01, 1.0, 0.25, 2)
-        self.region_h = self._double_spin(0.01, 1.0, 0.20, 2)
+        self.region_x = self._double_spin(0.0, 0.999, 0.75, 3)
+        self.region_y = self._double_spin(0.0, 0.999, 0.80, 3)
+        self.region_w = self._double_spin(0.001, 1.0, 0.25, 3)
+        self.region_h = self._double_spin(0.001, 1.0, 0.20, 3)
         for label, widget, col in [
             ("X", self.region_x, 0),
             ("Y", self.region_y, 1),
@@ -196,10 +201,6 @@ class ProcessingSettingsWidget(QWidget):
         self.device_combo = QComboBox()
         self.device_combo.addItem("CPU", "cpu")
         self.device_combo.addItem("GPU（CUDA）", "cuda")
-        cuda_status = inspect_cuda_runtime()
-        if not cuda_status.available:
-            self.device_combo.setItemText(1, "GPU（現在利用不可）")
-            self.device_combo.setItemData(1, cuda_status.message, Qt.ToolTipRole)
         developer_layout.addRow("処理デバイス", self.device_combo)
 
         self.compute_type_combo = QComboBox()
@@ -264,6 +265,7 @@ class ProcessingSettingsWidget(QWidget):
             ),
             page_diff_ratio_threshold=self.page_diff_ratio_threshold.value(),
             page_min_component_area=self.page_min_component_area.value(),
+            slide_region=getattr(self, "slide_region", None),
         )
 
     def duplicate_config(self) -> DuplicateConfig:
@@ -282,6 +284,17 @@ class ProcessingSettingsWidget(QWidget):
         )
 
     def load_settings(self, settings: QSettings) -> None:
+        import json
+
+        try:
+            stored = json.loads(str(settings.value("slide_region", "null")))
+            from movie_slide_notes.core.processor import valid_region
+
+            self.slide_region = (
+                tuple(stored) if isinstance(stored, list) and valid_region(stored) else None
+            )
+        except (ValueError, TypeError):
+            self.slide_region = None
         self._loading = True
         try:
             slide_defaults_migration_key = "slide_detection_defaults_v2_migrated"
@@ -397,6 +410,9 @@ class ProcessingSettingsWidget(QWidget):
             self._loading = False
 
     def save_settings(self, settings: QSettings) -> None:
+        import json
+
+        settings.setValue("slide_region", json.dumps(getattr(self, "slide_region", None)))
         settings.setValue("preset", self.preset_combo.currentData())
         config = self.slide_config()
         settings.setValue("interval", config.interval)

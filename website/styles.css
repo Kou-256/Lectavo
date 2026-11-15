@@ -688,6 +688,8 @@ h2 {
   margin-bottom: 74px;
 }
 
+.features--updates { padding-top: 0; }
+
 .features .heading-line:nth-child(2) {
   display: flex;
   flex-wrap: wrap;
@@ -796,6 +798,24 @@ h2 {
   display: block;
   width: 100%;
   height: auto;
+}
+
+.screen-detail {
+  grid-column: 1 / -1;
+  margin: 24px 0 0;
+  min-width: 0;
+}
+.screen-detail img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+.screen-detail figcaption {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .window-bar {

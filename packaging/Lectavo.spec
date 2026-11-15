@@ -56,7 +56,7 @@ datas = []
 for folder in ["assets", "licenses"]:
     if (root / folder).exists():
         datas.append((str(root / folder), folder))
-for file_name in ["THIRD_PARTY_NOTICES.txt"]:
+for file_name in ["THIRD_PARTY_NOTICES.txt", "LICENSE"]:
     if (root / file_name).exists():
         datas.append((str(root / file_name), "."))
 datas += collect_data_files("faster_whisper", includes=["assets/*"])

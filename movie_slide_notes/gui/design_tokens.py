@@ -113,7 +113,7 @@ QWidget {{
     font-size: 13px;
     background: transparent;
 }}
-QMainWindow {{
+QMainWindow, QDialog {{
     background: {colors.app_background};
 }}
 QWidget#PageContent, QScrollArea#PageScroll {{
@@ -227,6 +227,20 @@ QToolButton {{
     border-radius: {RADIUS.control}px;
     padding: 0 12px;
     background: {colors.surface};
+}}
+QSlider::groove:horizontal {{
+    height: 4px;
+    border-radius: 2px;
+    background: {colors.separator};
+}}
+QSlider::handle:horizontal {{
+    width: 14px;
+    margin: -5px 0;
+    border-radius: 7px;
+    background: {colors.accent};
+}}
+QSlider:focus {{
+    border: 1px solid {colors.accent};
 }}
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{
     min-height: {CONTROL.default}px;
