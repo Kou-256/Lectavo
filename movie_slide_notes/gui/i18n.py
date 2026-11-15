@@ -17,6 +17,15 @@ _current_language = DEFAULT_UI_LANGUAGE
 
 
 ENGLISH: dict[str, str] = {
+    "ファイル": "Files",
+    "ファイルを追加": "Add files",
+    "選択を削除": "Remove selected",
+    "設定は全ファイルに適用されます。": "Settings apply to all files.",
+    "Ctrlで複数選択、Shiftで範囲選択できます。設定は全ファイルに適用されます。": "Ctrl selects multiple files; Shift selects a range. Settings apply to all files.",
+    "完了（無音）": "Completed (silent audio)",
+    "完了（発話未検出）": "Completed (no speech detected)",
+    "無音です（音量がほぼゼロのため、文字起こしを行いませんでした）。": "Silent audio: transcription was skipped because the audio level is near zero.",
+    "発話を検出できませんでした（無音とは限りません。音量・言語・録音内容を確認してください）。": "No speech detected. This does not necessarily mean silence. Check volume, language, and recording content.",
     "動画・音声から資料と文字起こしを生成するアプリ": "Create documents and transcripts from video and audio.",
     "動画や音声から資料と文字起こしを作成します。": "Create documents and transcripts from video or audio.",
     "入力ファイル": "Input files",

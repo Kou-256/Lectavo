@@ -85,7 +85,10 @@ class UpdateManager(QObject):
         except ValueError:
             self.failed.emit("更新情報の形式が不正です。")
             return
-        if not trusted_asset_url(info.url, info.version, "Lectavo-Setup.exe"):
+        name = f"Lectavo-setup-{info.version}-x64.exe"
+        if not any(
+            trusted_asset_url(info.url, info.version, item) for item in (name, "Lectavo-Setup.exe")
+        ):
             self.failed.emit("更新ファイルの配布元を確認できません。")
             return
         folder = user_cache_dir() / "updates" / info.version
@@ -94,7 +97,7 @@ class UpdateManager(QObject):
         except OSError:
             self.failed.emit("更新ファイルを保存できません。空き容量を確認してください。")
             return
-        self.path = folder / "Lectavo-Setup.exe"
+        self.path = folder / name
         self.file = QSaveFile(str(self.path))
         if not self.file.open(QIODevice.WriteOnly):
             self.failed.emit("更新ファイルを保存できません。空き容量を確認してください。")

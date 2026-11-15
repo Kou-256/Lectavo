@@ -5,10 +5,21 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QProcess, QSettings, QSize, Qt, QThread, QTimer, QUrl
+from PySide6.QtCore import (
+    QItemSelectionModel,
+    QProcess,
+    QSettings,
+    QSize,
+    Qt,
+    QThread,
+    QTimer,
+    QUrl,
+)
 from PySide6.QtGui import QDesktopServices, QDragEnterEvent, QDropEvent, QIcon
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
+    QBoxLayout,
     QCheckBox,
     QDialog,
     QFileDialog,
@@ -17,6 +28,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPlainTextEdit,
@@ -25,6 +38,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QSplitter,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -132,8 +146,10 @@ class MainWindow(QMainWindow):
         sidebar_layout.addSpacing(18)
 
         self.nav_home = nav_button("ホーム")
+        self.nav_process = nav_button("処理")
         self.nav_history = nav_button("履歴")
         sidebar_layout.addWidget(self.nav_home)
+        sidebar_layout.addWidget(self.nav_process)
         sidebar_layout.addWidget(self.nav_history)
         sidebar_layout.addStretch(1)
         sidebar_layout.addWidget(separator())
@@ -141,6 +157,7 @@ class MainWindow(QMainWindow):
         self.nav_help = nav_button("ヘルプ")
         for button, icon_name in [
             (self.nav_home, "home"),
+            (self.nav_process, "processing"),
             (self.nav_history, "history"),
             (self.nav_settings, "settings"),
             (self.nav_help, "help"),
@@ -173,9 +190,37 @@ class MainWindow(QMainWindow):
         self.home_page = QWidget()
         layout = QVBoxLayout(self.home_page)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.home_stack = QStackedWidget()
-        layout.addWidget(self.home_stack)
         self.page_stack.addWidget(self.home_page)
+        self.processing_page = QSplitter(Qt.Horizontal)
+        self.processing_page.setChildrenCollapsible(True)
+        self.page_stack.addWidget(self.processing_page)
+        self.file_panel = QWidget()
+        self.file_panel.setMinimumWidth(0)
+        file_layout = QVBoxLayout(self.file_panel)
+        file_layout.setContentsMargins(12, 20, 12, 16)
+        file_layout.addWidget(section_title("ファイル"))
+        self.file_tabs = QListWidget()
+        self.file_tabs.setObjectName("FileTabs")
+        self.file_tabs.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.file_tabs.setTextElideMode(Qt.ElideMiddle)
+        self.file_tabs.setAccessibleName(tr("入力ファイル"))
+        self.file_tabs.setToolTip(
+            tr("Ctrlで複数選択、Shiftで範囲選択できます。設定は全ファイルに適用されます。")
+        )
+        self.file_tabs.currentItemChanged.connect(self._file_tab_changed)
+        file_layout.addWidget(self.file_tabs, 1)
+        self.add_media_button = QPushButton("ファイルを追加")
+        self.add_media_button.clicked.connect(self.add_files)
+        file_layout.addWidget(self.add_media_button)
+        self.remove_media_button = QPushButton("選択を削除")
+        self.remove_media_button.clicked.connect(self.remove_selected_files)
+        file_layout.addWidget(self.remove_media_button)
+        self.processing_page.addWidget(self.file_panel)
+        self.home_stack = QStackedWidget()
+        self.home_stack.setMinimumWidth(0)
+        self.processing_page.addWidget(self.home_stack)
+        self.processing_page.setSizes([190, 710])
+        self.processing_page.setStretchFactor(1, 1)
 
         self.empty_page = scroll_page()
         empty_content = self.empty_page.widget()
@@ -212,7 +257,7 @@ class MainWindow(QMainWindow):
         self.recent_layout.setSpacing(0)
         empty_layout.addLayout(self.recent_layout)
         empty_layout.addStretch(1)
-        self.home_stack.addWidget(self.empty_page)
+        layout.addWidget(self.empty_page)
 
         self.ready_page = scroll_page()
         ready_content = self.ready_page.widget()
@@ -254,6 +299,7 @@ class MainWindow(QMainWindow):
         ready_layout.addWidget(section_title("出力内容"))
         ready_layout.addWidget(separator())
         outputs = QGridLayout()
+        self.outputs_grid = outputs
         outputs.setHorizontalSpacing(28)
         outputs.setVerticalSpacing(10)
         self.output_pdf = QCheckBox("スライドPDF")
@@ -405,6 +451,7 @@ class MainWindow(QMainWindow):
         complete_layout.addLayout(self.complete_summary_layout)
         complete_layout.addSpacing(16)
         complete_actions = QHBoxLayout()
+        self.complete_actions = complete_actions
         self.open_output_button = QPushButton("出力フォルダを開く")
         self.open_pdf_button = QPushButton("PDFを開く")
         self.open_transcript_button = QPushButton("文字起こしを開く")
@@ -428,6 +475,8 @@ class MainWindow(QMainWindow):
         self.error_title = page_title("処理に問題がありました")
         self.error_message = QLabel("")
         self.error_message.setObjectName("ErrorText")
+        self.error_message.setWordWrap(True)
+        self.error_message.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         self.error_hint = subtitle("再試行するか、詳細ログを確認してください。")
         self.error_log_toggle = QPushButton("詳細を表示")
         self.error_log_toggle.setObjectName("LinkButton")
@@ -441,6 +490,7 @@ class MainWindow(QMainWindow):
         error_layout.addWidget(self.error_log_toggle, alignment=Qt.AlignLeft)
         error_layout.addWidget(self.error_log_text, 1)
         error_actions = QHBoxLayout()
+        self.error_actions = error_actions
         self.retry_button = QPushButton("再試行")
         self.copy_diagnostics_button = QPushButton("診断情報をコピー")
         self.open_logs_button = QPushButton("ログフォルダを開く")
@@ -613,6 +663,7 @@ class MainWindow(QMainWindow):
     def _connect_signals(self) -> None:
         for button, page in [
             (self.nav_home, "home"),
+            (self.nav_process, "processing"),
             (self.nav_history, "history"),
             (self.nav_settings, "settings"),
             (self.nav_help, "help"),
@@ -823,7 +874,7 @@ class MainWindow(QMainWindow):
         self._sync_input_kind()
         if self.videos:
             self._set_workflow_state("ready")
-            self._select_page("home")
+            self._select_page("processing")
         self._save_settings()
 
     def remove_video(self, path: Path) -> None:
@@ -940,6 +991,10 @@ class MainWindow(QMainWindow):
             self._refresh_running_settings()
         if event.video_path:
             self.video_statuses[Path(event.video_path)] = stage_label(event.stage)
+            for index in range(self.file_tabs.count()):
+                item = self.file_tabs.item(index)
+                if item.data(Qt.UserRole) == Path(event.video_path):
+                    item.setText(f"{event.video_path.name}\n{stage_label(event.stage)}")
             self.running_title.setText(tr(f"{event.video_path.name} を処理しています"))
         self.running_stage.setText(stage_label(event.stage))
         self.running_detail.setText(tr(event.message))
@@ -953,6 +1008,10 @@ class MainWindow(QMainWindow):
                 status = "キャンセル"
             elif result.error:
                 status = "エラー"
+            elif result.transcription and result.transcription.status == "silence":
+                status = "完了（無音）"
+            elif result.transcription and result.transcription.status == "no_speech":
+                status = "完了（発話未検出）"
             elif result.warnings:
                 status = "完了（警告あり）"
             else:
@@ -971,6 +1030,12 @@ class MainWindow(QMainWindow):
                 tr(
                     f"{len(batch.results)}本中 {batch.success_count}本成功、"
                     f"{batch.failed_count}本失敗しました。"
+                )
+                + "\n\n"
+                + "\n\n".join(
+                    result.video_path.name + ": " + tr(result.error)
+                    for result in batch.results
+                    if result.error
                 )
             )
             self._set_workflow_state("error")
@@ -1017,6 +1082,8 @@ class MainWindow(QMainWindow):
         self._set_log_texts()
 
     def _set_running(self, running: bool) -> None:
+        self.add_media_button.setEnabled(not running)
+        self.remove_media_button.setEnabled(not running)
         self.select_video_button.setEnabled(not running)
         self.select_folder_link.setEnabled(not running)
         self.clear_button.setEnabled(not running)
@@ -1045,6 +1112,10 @@ class MainWindow(QMainWindow):
 
     def _set_workflow_state(self, state: str) -> None:
         self.workflow_state = state
+        self.nav_process.setEnabled(state != "empty")
+        if state == "empty":
+            self._select_page("home")
+            return
         index = {
             "empty": self.home_stack.indexOf(self.empty_page),
             "ready": self.home_stack.indexOf(self.ready_page),
@@ -1053,10 +1124,12 @@ class MainWindow(QMainWindow):
             "error": self.home_stack.indexOf(self.error_page),
         }[state]
         self.home_stack.setCurrentIndex(index)
+        self._select_page("processing")
 
     def _select_page(self, page: str) -> None:
         mapping = {
             "home": self.home_page,
+            "processing": self.processing_page,
             "history": self.history_page,
             "settings": self.settings_page,
             "help": self.help_page,
@@ -1064,6 +1137,7 @@ class MainWindow(QMainWindow):
         self.page_stack.setCurrentWidget(mapping[page])
         all_buttons = {
             "home": [self.nav_home],
+            "processing": [self.nav_process],
             "history": [self.nav_history],
             "settings": [self.nav_settings],
             "help": [self.nav_help],
@@ -1075,11 +1149,34 @@ class MainWindow(QMainWindow):
             self._refresh_history()
 
     def _refresh_video_list(self) -> None:
+        selected = {item.data(Qt.UserRole) for item in self.file_tabs.selectedItems()}
+        current = self.file_tabs.currentItem()
+        current_path = current.data(Qt.UserRole) if current else None
+        self.file_tabs.blockSignals(True)
+        self.file_tabs.clear()
+        for path in self.videos:
+            status = tr(self.video_statuses.get(path, "待機中"))
+            item = QListWidgetItem(f"{path.name}\n{status}")
+            item.setData(Qt.UserRole, path)
+            item.setToolTip(str(path))
+            self.file_tabs.addItem(item)
+            if path in selected:
+                item.setSelected(True)
+            if path == current_path:
+                self.file_tabs.setCurrentItem(item, QItemSelectionModel.NoUpdate)
+        if self.file_tabs.currentRow() < 0 and self.videos:
+            self.file_tabs.setCurrentRow(0)
+        self.file_tabs.blockSignals(False)
+        self._refresh_selected_file()
+
+    def _refresh_selected_file(self):
         clear_layout(self.video_list_layout)
         if not self.videos:
             self.video_list_layout.addWidget(subtitle(tr("動画はまだ追加されていません。")))
             return
-        for path in self.videos:
+        current = self.file_tabs.currentItem()
+        active_path = current.data(Qt.UserRole) if current else self.videos[0]
+        for path in [active_path]:
             row = QFrame()
             row.setObjectName("ListRow")
             row_layout = QHBoxLayout(row)
@@ -1103,6 +1200,26 @@ class MainWindow(QMainWindow):
                 remove.clicked.connect(lambda _checked=False, p=path: self.remove_video(p))
                 row_layout.addWidget(remove)
             self.video_list_layout.addWidget(row)
+        self.video_list_layout.addWidget(
+            subtitle(tr("設定は全ファイルに適用されます。") + f" ({len(self.videos)})")
+        )
+
+    def _file_tab_changed(self, current, previous=None):
+        if current is not None:
+            self._refresh_selected_file()
+
+    def remove_selected_files(self):
+        if self.worker is not None:
+            return
+        paths = [item.data(Qt.UserRole) for item in self.file_tabs.selectedItems()]
+        for path in paths:
+            if path in self.videos:
+                self.videos.remove(path)
+                self.video_statuses.pop(path, None)
+        self._refresh_video_list()
+        self._update_naming_preview()
+        self._sync_input_kind()
+        self._set_workflow_state("ready" if self.videos else "empty")
 
     def _refresh_recent(self) -> None:
         clear_layout(self.recent_layout)
@@ -1194,6 +1311,11 @@ class MainWindow(QMainWindow):
             label = QLabel(tr(text))
             label.setObjectName("SuccessText")
             self.complete_summary_layout.addWidget(label)
+        for result in batch.results:
+            if result.transcription and result.transcription.warning:
+                label = QLabel(result.video_path.name + ": " + tr(result.transcription.warning))
+                label.setWordWrap(True)
+                self.complete_summary_layout.addWidget(label)
         if batch.output_mode == "combined" and batch.combined_duplicate_count:
             duplicate_label = QLabel(tr(f"動画間の重複除去: {batch.combined_duplicate_count} 枚"))
             duplicate_label.setObjectName("SuccessText")
@@ -1209,7 +1331,7 @@ class MainWindow(QMainWindow):
     def _retry_processing(self) -> None:
         if self.videos:
             self._set_workflow_state("ready")
-            self._select_page("home")
+            self._select_page("processing")
 
     def new_process(self) -> None:
         if self.worker is not None:
@@ -1602,9 +1724,38 @@ class MainWindow(QMainWindow):
         event.accept()
 
     def _update_responsive(self) -> None:
+        compact = self.width() < 960
         self.sidebar.setVisible(True)
-        self.brand_label.setVisible(True)
-        self.sidebar.setFixedWidth(LAYOUT.sidebar_wide)
+        self.brand_label.setVisible(not compact)
+        self.sidebar.setFixedWidth(LAYOUT.sidebar_compact if compact else LAYOUT.sidebar_wide)
+        for button, label in [
+            (self.nav_home, "ホーム"),
+            (self.nav_process, "処理"),
+            (self.nav_history, "履歴"),
+            (self.nav_settings, "設定"),
+            (self.nav_help, "ヘルプ"),
+        ]:
+            button.setText("" if compact else tr(label))
+            button.setToolTip(tr(label))
+            if button.property("compact") != compact:
+                button.setProperty("compact", compact)
+                button.style().unpolish(button)
+                button.style().polish(button)
+        if hasattr(self, "outputs_grid"):
+            for checkbox in (self.output_pdf, self.output_lecture_notes, self.output_images):
+                self.outputs_grid.removeWidget(checkbox)
+            for index, checkbox in enumerate(
+                (self.output_pdf, self.output_lecture_notes, self.output_images)
+            ):
+                self.outputs_grid.addWidget(
+                    checkbox, index if compact else index // 2, 0 if compact else index % 2
+                )
+            direction = QBoxLayout.TopToBottom if compact else QBoxLayout.LeftToRight
+            self.complete_actions.setDirection(direction)
+            self.error_actions.setDirection(direction)
+        if getattr(self, "_compact_layout", None) != compact:
+            self._compact_layout = compact
+            self.processing_page.setSizes([150 if compact else 190, max(1, self.width() - 400)])
         inspector_inline = self.width() >= 1180
         self.inspector.setVisible(inspector_inline and self.inspector_requested)
         if not inspector_inline:
@@ -1635,6 +1786,7 @@ class MainWindow(QMainWindow):
         self._refresh_history()
         self._refresh_running_settings()
         self.settings.setValue("ui_language", current_ui_language())
+        self._update_responsive()
 
 
 def system_prefers_dark() -> bool:

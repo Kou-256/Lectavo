@@ -43,7 +43,7 @@ if ($Stage -in @("App", "All")) {
     $Targets += Join-Path $Root "dist\Lectavo\Lectavo.exe"
 }
 if ($Stage -in @("Installer", "All")) {
-    $Targets += Join-Path $Root "release\Lectavo-Setup.exe"
+    $Targets += Get-ChildItem -LiteralPath (Join-Path $Root "release") -Filter "Lectavo-*setup*.exe" | Select-Object -ExpandProperty FullName
     $Targets += Join-Path $Root "release\Lectavo-x64.msi"
 }
 

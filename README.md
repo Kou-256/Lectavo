@@ -1,5 +1,14 @@
 # Lectavo
 
+## 0.3.1 の改善
+
+- 4Kモニターでも見出しが縦に崩れないように公式サイトの幅計算を修正。
+- ホームと処理画面を分離。処理画面左側のファイルタブで切替・Ctrlによる複数選択・Shiftの範囲選択・選択削除が可能です。処理設定は全入力に共通です。
+- ファイル選択ダイアログでもCtrl／Shiftで動画・音声を複数選択できます。
+- 無音、発話未検出、モデル読み込みエラーを区別して表示。開けないモデルは、通常ファイルへのキャッシュ修復または必要ファイルの再取得を試みます。全件失敗した場合は空の統合ノートを生成しません。
+- 配布ファイル名は `Lectavo-setup-0.3.1-x64.exe`。旧版更新機能用の `Lectavo-Setup.exe` は同じ内容の互換ファイルです。
+
+
 [日本語](README.md) | [English](README.en.md) | [公式サイト](https://lectavo.vercel.app) | [最新版をダウンロード](https://github.com/Kou-256/Lectavo/releases/latest)
 
 Lectavoは、講義・プレゼンテーション動画から重複のないスライドPDFを、動画・音声ファイルからタイムスタンプ付き文字起こし、SRT、Markdownノートを生成するWindowsデスクトップアプリです。
@@ -27,7 +36,7 @@ Lectavoは、講義・プレゼンテーション動画から重複のないス�
 
 ## ダウンロード
 
-一般ユーザーは[最新のGitHub Release](https://github.com/Kou-256/Lectavo/releases/latest)から`Lectavo-Setup.exe`を取得してください。インストール後の利用にPython、pip、Git、仮想環境、外部`ffmpeg.exe`は不要です。
+一般ユーザーは[最新のGitHub Release](https://github.com/Kou-256/Lectavo/releases/latest)から`Lectavo-setup-0.3.1-x64.exe`を取得してください。インストール後の利用にPython、pip、Git、仮想環境、外部`ffmpeg.exe`は不要です。
 
 - 対応: Windows 10 / 11 x64
 - 初期UI言語: 日本語
@@ -36,7 +45,7 @@ Lectavoは、講義・プレゼンテーション動画から重複のないス�
 - GPU: 任意。CPUのみでも利用可能
 - デスクトップショートカット: 既定で作成
 
-現在の`0.3.0`配布物は未署名です。Windows SmartScreenが警告する場合があります。ダウンロード後はReleaseに掲載されたSHA-256と照合してください。
+現在の`0.3.1`配布物は未署名です。Windows SmartScreenが警告する場合があります。ダウンロード後はReleaseに掲載されたSHA-256と照合してください。
 
 ## 使い方
 
@@ -54,7 +63,7 @@ Lectavoは、講義・プレゼンテーション動画から重複のないス�
 
 ![音声ファイルの文字起こし](docs/images/lectavo-audio.png)
 
-1. `Lectavo-Setup.exe`を実行します。
+1. `Lectavo-setup-0.3.1-x64.exe`を実行します。
 2. デスクトップまたはスタートメニューからLectavoを起動します。
 3. 「動画を選択」、フォルダ選択、またはドラッグ＆ドロップで動画を追加します。
 4. 「まとめて出力」または「動画ごとに出力」を選びます。

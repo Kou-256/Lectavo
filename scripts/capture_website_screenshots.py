@@ -72,7 +72,7 @@ def main() -> int:
     ready_window._set_output_path(Path(r"C:\Lectavo_output"))
     ready_window._refresh_video_list()
     ready_window._update_naming_preview()
-    ready_window._select_page("home")
+    ready_window._select_page("processing")
     ready_window._set_workflow_state("ready")
     ready_window.resize(1280, 800)
     ready_window.show()

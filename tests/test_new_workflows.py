@@ -118,7 +118,9 @@ class NewWorkflowTests(unittest.TestCase):
                     self.assertEqual(Path(completed[0]).read_bytes(), content)
                 else:
                     self.assertFalse(completed)
-                    self.assertFalse((Path(directory) / "0.4.0" / "Lectavo-Setup.exe").exists())
+                    self.assertFalse(
+                        (Path(directory) / "0.4.0" / "Lectavo-setup-0.4.0-x64.exe").exists()
+                    )
                     self.assertTrue(cancelled if cancel else failed)
 
     def test_declining_update_never_downloads_or_executes(self):

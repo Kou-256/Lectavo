@@ -44,11 +44,14 @@ def parse_release(data: dict, current: str) -> UpdateInfo | None:
         or version_tuple(version) <= version_tuple(current)
     ):
         return None
+    names = (f"Lectavo-setup-{version}-x64.exe", "Lectavo-Setup.exe")
     matches = [
         asset
         for asset in data.get("assets", [])
-        if isinstance(asset, dict) and asset.get("name") == "Lectavo-Setup.exe"
+        if isinstance(asset, dict) and asset.get("name") in names
     ]
+    preferred = [asset for asset in matches if asset.get("name") == names[0]]
+    matches = preferred or matches
     if len(matches) != 1:
         raise ValueError("更新用Setupが見つかりません。")
     asset = matches[0]
@@ -56,7 +59,7 @@ def parse_release(data: dict, current: str) -> UpdateInfo | None:
     if not re.fullmatch(r"sha256:[a-fA-F0-9]{64}", digest):
         raise ValueError("更新ファイルの検証情報を取得できません。")
     url = str(asset.get("browser_download_url", ""))
-    if not trusted_asset_url(url, version, "Lectavo-Setup.exe"):
+    if not trusted_asset_url(url, version, asset["name"]):
         raise ValueError("更新ファイルの配布元を確認できません。")
     size = asset.get("size", 0)
     if not isinstance(size, int) or not 0 < size < 2_000_000_000:

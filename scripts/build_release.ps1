@@ -150,6 +150,9 @@ try {
     $ReleaseNotes = @"
 Lectavo $Version
 
+- 0.3.1: Fixed 4K website layout, separated Home and Process, and added multi-select file tabs.
+- 0.3.1: Distinguishes silence, no detected speech, and model loading errors; repairs unreadable model files.
+- 0.3.1: Versioned x64 installer filenames, with a legacy alias for the 0.3.0 updater.
 - 0.3.0: MP3 / M4A / WAV transcription with TXT, SRT, and Markdown output.
 - 0.3.0: Select slide crop and page-number regions on a video preview.
 - 0.3.0: Check updates in the background; ask before download and installation; verify SHA-256.
@@ -187,7 +190,7 @@ Lectavo $Version
     Set-Content -Path (Join-Path $ReleaseDir "release-notes.txt") -Value $ReleaseNotes -Encoding UTF8
 
     $HashTargets = Get-ChildItem $ReleaseDir -File |
-        Where-Object { $_.Name -in @("Lectavo-Setup.exe", "Lectavo-x64.msi", "Lectavo-portable.zip", "VERSION.txt", "release-notes.txt") }
+        Where-Object { $_.Name -like "Lectavo-setup-*-x64.exe" -or $_.Name -in @("Lectavo-Setup.exe", "Lectavo-x64.msi", "Lectavo-portable.zip", "VERSION.txt", "release-notes.txt") }
     $HashLines = foreach ($File in $HashTargets) {
         $Hash = Get-FileHash -Algorithm SHA256 -LiteralPath $File.FullName
         "$($Hash.Hash.ToLowerInvariant())  $($File.Name)"

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
+import shutil
 import tempfile
 import warnings
 import wave
+from array import array
 from collections.abc import Callable
 from dataclasses import dataclass
 from importlib.util import find_spec
@@ -45,6 +49,7 @@ class TranscriptionResult:
     audio_path: Path | None
     warning: str | None = None
     duration_seconds: float | None = None
+    status: str = "transcribed"
 
 
 @dataclass(frozen=True)
@@ -91,6 +96,23 @@ def transcribe_video(
                 duration_seconds = audio.getnframes() / audio.getframerate()
         check_cancelled(cancel_event)
 
+        if is_silent_audio(audio_path, cancel_event):
+            message = "無音です（音量がほぼゼロのため、文字起こしを行いませんでした）。"
+            emit_progress(progress_callback, "silence", 1, 1, message)
+            text_path = output_dir / f"{video_stem}_transcript.txt"
+            srt_path = output_dir / f"{video_stem}_transcript.srt"
+            text_path.write_text(message + "\n", encoding="utf-8")
+            write_srt([], srt_path)
+            return TranscriptionResult(
+                [],
+                text_path,
+                srt_path,
+                audio_path if config.keep_audio else None,
+                message,
+                duration_seconds,
+                "silence",
+            )
+
         emit_progress(
             progress_callback,
             "model_prepare",
@@ -116,7 +138,14 @@ def transcribe_video(
                 active_device = "cpu"
                 active_compute_type = "int8"
         try:
-            model = create_whisper_model(WhisperModel, config, active_device, active_compute_type)
+            model = create_whisper_model(
+                WhisperModel,
+                config,
+                active_device,
+                active_compute_type,
+                progress_callback,
+                cancel_event,
+            )
         except Exception as exc:
             if active_device.lower() != "cuda" or not should_fallback_to_cpu(config, exc):
                 raise
@@ -124,7 +153,14 @@ def transcribe_video(
             emit_progress(progress_callback, "model_prepare", 0, None, warning)
             active_device = "cpu"
             active_compute_type = "int8"
-            model = create_whisper_model(WhisperModel, config, active_device, active_compute_type)
+            model = create_whisper_model(
+                WhisperModel,
+                config,
+                active_device,
+                active_compute_type,
+                progress_callback,
+                cancel_event,
+            )
         check_cancelled(cancel_event)
         language = None if config.language in (None, "", "auto") else config.language
         emit_progress(
@@ -140,7 +176,9 @@ def transcribe_video(
                 raise
             warning = "CUDAが使えないためCPUで続行しました"
             emit_progress(progress_callback, "model_prepare", 0, None, warning)
-            model = create_whisper_model(WhisperModel, config, "cpu", "int8")
+            model = create_whisper_model(
+                WhisperModel, config, "cpu", "int8", progress_callback, cancel_event
+            )
             segment_iter, _ = model.transcribe(str(audio_path), language=language, vad_filter=True)
             segments = collect_segments(
                 segment_iter, progress_callback, cancel_event, duration_seconds
@@ -153,6 +191,11 @@ def transcribe_video(
     srt_path = output_dir / f"{video_stem}_transcript.srt"
     write_text_transcript(segments, text_path)
     write_srt(segments, srt_path)
+    status = "transcribed" if segments else "no_speech"
+    if not segments:
+        message = "発話を検出できませんでした（無音とは限りません。音量・言語・録音内容を確認してください）。"
+        text_path.write_text(message + "\n", encoding="utf-8")
+        warning = f"{warning}\n{message}" if warning else message
 
     return TranscriptionResult(
         segments=segments,
@@ -161,22 +204,160 @@ def transcribe_video(
         audio_path=audio_path if config.keep_audio else None,
         warning=warning,
         duration_seconds=duration_seconds,
+        status=status,
     )
 
 
 def create_whisper_model(
-    whisper_model_class, config: TranscriptionConfig, device: str, compute_type: str
+    whisper_model_class,
+    config: TranscriptionConfig,
+    device: str,
+    compute_type: str,
+    progress_callback: ProgressCallback | None = None,
+    cancel_event: Event | None = None,
 ):
     if device.lower() == "cuda":
         configure_cuda_dll_directories()
-    return whisper_model_class(
-        config.model_size,
-        device=device,
-        compute_type=compute_type,
-        download_root=None,
-        local_files_only=False,
-        use_auth_token=config.hf_token or False,
+    from faster_whisper.utils import download_model
+
+    check_cancelled(cancel_event)
+    try:
+        if Path(config.model_size).is_dir():
+            model_path = Path(config.model_size)
+        else:
+            try:
+                model_path = Path(
+                    download_model(
+                        config.model_size,
+                        local_files_only=True,
+                        use_auth_token=config.hf_token or False,
+                    )
+                )
+            except Exception:
+                check_cancelled(cancel_event)
+                model_path = Path(
+                    download_model(config.model_size, use_auth_token=config.hf_token or False)
+                )
+        if not model_files_readable(model_path):
+            emit_progress(
+                progress_callback,
+                "model_prepare",
+                0,
+                None,
+                "モデルの保存データが不完全です。モデルを再取得しています（無音エラーではありません）。",
+            )
+            model_path = repair_model(config, model_path)
+        check_cancelled(cancel_event)
+        try:
+            return whisper_model_class(
+                str(model_path), device=device, compute_type=compute_type, local_files_only=True
+            )
+        except RuntimeError as exc:
+            if "unable to open file" not in str(exc).lower():
+                raise
+            emit_progress(
+                progress_callback,
+                "model_prepare",
+                0,
+                None,
+                "モデルを開けません。キャッシュを修復しています（無音エラーではありません）。",
+            )
+            repaired = repair_model(config, model_path)
+            check_cancelled(cancel_event)
+            return whisper_model_class(
+                str(repaired), device=device, compute_type=compute_type, local_files_only=True
+            )
+    except TranscriptionCancelled:
+        raise
+    except Exception as exc:
+        if should_fallback_to_cpu(config, exc):
+            raise
+        raise RuntimeError(
+            "文字起こしモデルを読み込めません。無音が原因ではありません。"
+            "モデルの取得失敗・キャッシュ破損の可能性があります。"
+            "ネットワークと空き容量を確認し、再試行するか別のモデルを選択してください。"
+        ) from exc
+
+
+def model_files_readable(folder: Path) -> bool:
+    try:
+        model = folder / "model.bin"
+        if model.stat().st_size < 1024:
+            return False
+        with model.open("rb") as handle:
+            if not handle.read(16):
+                return False
+        for name in ("config.json", "tokenizer.json"):
+            with (folder / name).open(encoding="utf-8") as handle:
+                json.load(handle)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def repair_model(config: TranscriptionConfig, original: Path) -> Path:
+    from huggingface_hub import snapshot_download
+
+    # Materialize a separate repair copy without deleting or modifying old caches.
+    repo_folder = original.parent.parent.name
+    if repo_folder.startswith("models--"):
+        repo_id = repo_folder.removeprefix("models--").replace("--", "/")
+    elif "/" in config.model_size and not Path(config.model_size).exists():
+        repo_id = config.model_size
+    else:
+        raise RuntimeError("ローカルモデルが不完全です。モデルを再配置してください。")
+    destination = (
+        user_cache_dir() / "repaired_models" / hashlib.sha256(repo_id.encode()).hexdigest()[:16]
     )
+    if not model_files_readable(destination) and model_files_readable(original):
+        destination.mkdir(parents=True, exist_ok=True)
+        for source in original.iterdir():
+            if source.name not in (
+                "model.bin",
+                "config.json",
+                "tokenizer.json",
+                "preprocessor_config.json",
+            ) and not source.name.startswith("vocabulary."):
+                continue
+            if not source.is_file():
+                continue
+            with tempfile.NamedTemporaryFile(dir=destination, delete=False) as temporary:
+                temporary_path = Path(temporary.name)
+            try:
+                shutil.copyfile(source, temporary_path)
+                temporary_path.replace(destination / source.name)
+            finally:
+                temporary_path.unlink(missing_ok=True)
+    if not model_files_readable(destination):
+        snapshot_download(
+            repo_id,
+            local_dir=str(destination),
+            force_download=True,
+            token=config.hf_token or False,
+            allow_patterns=[
+                "config.json",
+                "preprocessor_config.json",
+                "model.bin",
+                "tokenizer.json",
+                "vocabulary.*",
+            ],
+        )
+    if not model_files_readable(destination):
+        raise RuntimeError("モデルの再取得後の検証に失敗しました。")
+    return destination
+
+
+def is_silent_audio(path: Path, cancel_event: Event | None = None) -> bool:
+    with wave.open(str(path), "rb") as audio:
+        if audio.getnframes() == 0:
+            raise RuntimeError("音声データが空です。ファイルの内容を確認してください。")
+        while chunk := audio.readframes(16000):
+            check_cancelled(cancel_event)
+            samples = array("h")
+            samples.frombytes(chunk)
+            if any(abs(sample) > 2 for sample in samples):
+                return False
+    return True
 
 
 def should_fallback_to_cpu(config: TranscriptionConfig, exc: Exception) -> bool:

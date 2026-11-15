@@ -311,6 +311,9 @@ def finalize_combined_outputs(
     total_units: int,
     video_count: int,
 ) -> None:
+    if not any(result.slides or result.transcription for result in batch.results):
+        emit_log(log_callback, "出力できる結果がないため、統合ファイルは生成しませんでした。")
+        return
     emit_progress(
         progress_callback,
         None,
@@ -334,10 +337,11 @@ def finalize_combined_outputs(
     )
     batch.combined_slide_count = len(combined_slides)
     batch.combined_duplicate_count = duplicate_count
-    emit_log(
-        log_callback,
-        f"全動画のスライドを統合しました: 保存 {len(combined_slides)} 件、重複除去 {duplicate_count} 件",
-    )
+    if any(result.slides or result.stats for result in batch.results):
+        emit_log(
+            log_callback,
+            f"全動画のスライドを統合しました: 保存 {len(combined_slides)} 件、重複除去 {duplicate_count} 件",
+        )
 
     if options.operations.generate_pdf and combined_slides:
         batch.combined_pdf_path = output_dir / f"{stem}_slides.pdf"
@@ -360,7 +364,11 @@ def finalize_combined_outputs(
             "Lectavo 講義ノート", combined_notes, batch.combined_markdown_path
         )
         audio_notes = [
-            audio_markdown(result.video_path.stem, result.transcription.segments)
+            audio_markdown(
+                result.video_path.stem,
+                result.transcription.segments,
+                result.transcription.warning if not result.transcription.segments else None,
+            )
             for result in batch.results
             if result.video_path.suffix.lower() in AUDIO_EXTENSIONS and result.transcription
         ]
@@ -449,6 +457,8 @@ def write_combined_transcripts(
     for result in results:
         if result.transcription is not None:
             lines.extend([f"# {result.video_path.stem}", ""])
+            if not result.transcription.segments and result.transcription.warning:
+                lines.extend([result.transcription.warning, ""])
             for segment in result.transcription.segments:
                 lines.append(
                     f"[{format_transcript_timestamp(segment.start)} --> "
@@ -652,7 +662,7 @@ def process_video(
             result.error = describe_exception(exc)
             emit_log(log_callback, f"{video_path.name}: 文字起こしに失敗しました - {result.error}")
 
-    if options.operations.generate_markdown:
+    if options.operations.generate_markdown and (not audio_only or result.transcription):
         if is_cancelled(cancel_event):
             raise ProcessingCancelled("Markdown生成をキャンセルしました。")
         emit_stage(
@@ -671,7 +681,12 @@ def process_video(
         if audio_only:
             result.markdown_path = video_output_dir / f"{video_stem}_notes.md"
             result.markdown_path.write_text(
-                audio_markdown(video_path.stem, segments), encoding="utf-8"
+                audio_markdown(
+                    video_path.stem,
+                    segments,
+                    result.transcription.warning if result.transcription and not segments else None,
+                ),
+                encoding="utf-8",
             )
         else:
             write_slide_markdown(video_stem, result.slides, segments, result.markdown_path)
@@ -679,6 +694,10 @@ def process_video(
 
     final_stage = "error" if result.error else "done"
     final_message = "エラー" if result.error else "完了"
+    if result.transcription and result.transcription.status != "transcribed":
+        final_message = (
+            "完了（無音）" if result.transcription.status == "silence" else "完了（発話未検出）"
+        )
     emit_stage(
         log_callback,
         progress_callback,
@@ -758,8 +777,10 @@ def valid_region(region) -> bool:
     )
 
 
-def audio_markdown(title: str, segments) -> str:
+def audio_markdown(title: str, segments, notice: str | None = None) -> str:
     lines = [f"# {title}", "", "## Transcript", ""]
+    if notice:
+        lines.extend([notice, ""])
     lines.extend(f"[{format_transcript_timestamp(item.start)}] {item.text}" for item in segments)
     return "\n".join(lines) + "\n"
 

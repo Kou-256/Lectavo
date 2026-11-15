@@ -256,8 +256,13 @@ main {
   flex-direction: column;
   justify-content: center;
   margin: 0 auto;
-  padding: 126px 56% 110px 24px;
+  padding: 126px 24px 150px;
+  align-items: flex-start;
 }
+
+.hero-content > :not(h1) { max-width: 540px; }
+.hero-content > * { min-width: 0; }
+.hero-content .platform { white-space: nowrap; }
 
 .platform,
 .section-index {
@@ -518,6 +523,8 @@ h2 {
 
 .cuda-copy {
   padding-left: max(24px, calc((100vw - var(--max)) / 2));
+  padding-right: 48px;
+  min-width: 0;
 }
 
 .compute-visual {
@@ -1006,7 +1013,7 @@ footer > a:not(.brand) {
   }
 
   .hero-content {
-    padding-right: 40%;
+    padding-right: 24px;
   }
 
   .hero-status {

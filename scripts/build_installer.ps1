@@ -87,9 +87,11 @@ if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup build failed."
 }
 
-$SetupPath = Join-Path $ReleaseDir "Lectavo-Setup.exe"
+$SetupPath = Join-Path $ReleaseDir "Lectavo-setup-$Version-x64.exe"
 if (-not (Test-Path $SetupPath)) {
     throw "Lectavo-Setup.exe was not generated: $SetupPath"
 }
 
 Write-Host "Setup.exe completed: $SetupPath"
+# Compatibility asset for the updater shipped in 0.3.0.
+Copy-Item -LiteralPath $SetupPath -Destination (Join-Path $ReleaseDir "Lectavo-Setup.exe") -Force

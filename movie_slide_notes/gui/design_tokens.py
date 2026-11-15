@@ -126,6 +126,20 @@ QFrame#Sidebar {{
     background: {colors.surface};
     border-right: 1px solid {colors.separator};
 }}
+QListWidget#FileTabs {{
+    border: none;
+    background: {colors.surface};
+    outline: none;
+}}
+QListWidget#FileTabs::item {{
+    padding: 12px 8px;
+    border-bottom: 1px solid {colors.separator};
+}}
+QListWidget#FileTabs::item:selected {{
+    color: {colors.primary_text};
+    background: {colors.accent_soft};
+}}
+QListWidget#FileTabs::item:focus {{ border: 1px solid {colors.accent}; }}
 QFrame#Inspector {{
     background: {colors.surface};
     border-left: 1px solid {colors.separator};
@@ -216,6 +230,7 @@ QPushButton#NavButton {{
 QPushButton#NavButton:hover {{
     background: {colors.control_hover};
 }}
+QPushButton#NavButton[compact="true"] {{ padding: 0; text-align: center; }}
 QPushButton#NavButton:checked {{
     background: {colors.accent_soft};
     color: {colors.accent};

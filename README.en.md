@@ -1,5 +1,14 @@
 # Lectavo
 
+## New in 0.3.1
+
+- Fixed collapsed hero text on 4K displays.
+- Separate Home and Process screens, with a resizable left file-tab list. Ctrl/Shift select multiple files; selected files can be removed together. Processing settings apply to the entire batch.
+- Distinguish silent audio, no detected speech, and model-loading errors. Unreadable models are repaired into regular local files or downloaded again without deleting the original cache.
+- All-failed audio batches no longer generate misleading empty notes.
+- Download `Lectavo-setup-0.3.1-x64.exe`. The legacy `Lectavo-Setup.exe` asset remains as a compatibility alias for older updaters.
+
+
 ## New in 0.3.0
 
 - Transcribe MP3, M4A, and WAV into TXT, SRT, and Markdown. Mix video and audio inputs, or process audio alone without slide detection. Combined SRT offsets include the complete audio duration, including silence.
@@ -40,7 +49,7 @@ Lectavo is a Windows desktop application that turns lecture and presentation vid
 
 ## Download
 
-Download `Lectavo-Setup.exe` from the [latest GitHub Release](https://github.com/Kou-256/Lectavo/releases/latest). The installed application does not require Python, pip, Git, a virtual environment, or a separate `ffmpeg.exe`.
+Download `Lectavo-setup-0.3.1-x64.exe` from the [latest GitHub Release](https://github.com/Kou-256/Lectavo/releases/latest). The installed application does not require Python, pip, Git, a virtual environment, or a separate `ffmpeg.exe`.
 
 - Windows 10 / 11 x64
 - Japanese UI by default
@@ -49,11 +58,11 @@ Download `Lectavo-Setup.exe` from the [latest GitHub Release](https://github.com
 - GPU optional; CPU-only operation is supported
 - Desktop shortcut enabled by default
 
-The current `0.3.0` binary is unsigned, so Windows SmartScreen may display a warning. Compare the download with the SHA-256 value attached to the release.
+The current `0.3.1` binary is unsigned, so Windows SmartScreen may display a warning. Compare the download with the SHA-256 value attached to the release.
 
 ## Basic use
 
-1. Run `Lectavo-Setup.exe`.
+1. Run `Lectavo-setup-0.3.1-x64.exe`.
 2. Launch Lectavo from the desktop or Start Menu.
 3. Add videos with the file button, folder link, or drag and drop.
 4. Choose combined output or per-video output.
