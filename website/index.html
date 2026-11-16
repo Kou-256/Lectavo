@@ -113,10 +113,10 @@
         <span>Lectavo</span>
       </a>
       <nav aria-label="メインナビゲーション">
-        <a href="#workflow">できること</a>
+        <a href="#capabilities">できること</a>
         <a href="#cuda">CUDA</a>
         <a href="#screens">画面</a>
-        <a href="https://github.com/Kou-256/Lectavo">GitHub</a>
+        <a href="#questions">よくある質問</a>
         <a class="button button--small" href="#download">ダウンロード</a>
       </nav>
     </header>
@@ -218,6 +218,46 @@
         </p>
       </section>
 
+      <section class="guide reveal" id="capabilities" aria-labelledby="capabilities-title">
+        <p class="section-index">WHAT YOU CAN DO</p>
+        <h2 id="capabilities-title">動画と録音を、<br />読み返せる資料に。</h2>
+        <p class="guide-intro">講義の復習、研修の振り返り、プレゼン資料の整理に。手元のファイルを選ぶだけで、画像・文字・字幕として保存できます。</p>
+        <div class="guide-grid">
+          <article>
+            <h3>長い講義から、スライドだけを取り出す</h3>
+            <p>動画を一定間隔で確認し、スライドが大きく変わった場面を画像に保存。レーザーポインターやマウスの小さな動きはできるだけ除外し、抽出した画像を1ページ1枚のPDFにします。見返したいページを、動画を再生し直さずに探せます。</p>
+          </article>
+          <article>
+            <h3>分割された動画を、1つの資料にまとめる</h3>
+            <p>複数ファイルをCtrl／Shiftで選択、またはフォルダごと追加。ファイル名の自然順（01、02、…、10）で処理し、動画をまたいで重複するスライドを取り除きます。前のページへ戻った場面も、ほぼ同じ画像ならPDFには一度だけ掲載します。</p>
+          </article>
+          <article>
+            <h3>動画の音声や録音を、文字で読む</h3>
+            <p>faster-whisperが発話を文字起こしし、時刻付きテキストと字幕ファイルを保存します。MP3・M4A・WAVの音声だけでも利用可能。言語は自然に検出するほか、日本語・英語などを指定でき、聞き直したい箇所を時刻からたどれます。</p>
+          </article>
+          <article>
+            <h3>スライドと、そのときの説明を並べる</h3>
+            <p>スライドの表示時刻と発話のタイムスタンプを照合し、画像と対応する文字起こしをMarkdownの講義ノートへ整理。音声だけの場合は、画像なしの時刻付きノートを作ります。説明を読みながら、どのページの話か確認できます。</p>
+          </article>
+          <article>
+            <h3>登壇者や操作パネルを、抽出範囲から外す</h3>
+            <p>動画プレビュー上で、資料のある範囲とページ番号の位置をドラッグ指定。時刻を変えて確認したり、数値で微調整したりできます。指定した範囲は同じ処理の全動画に適用されるので、画面構成が違う動画は分けて処理してください。</p>
+          </article>
+          <article>
+            <h3>まとめて保存も、ファイル別の保存も</h3>
+            <p>「まとめて出力」ではPDF・文字起こし・字幕・ノートをそれぞれ1つに統合。「動画ごとに出力」では入力ごとにフォルダを分けます。保存先や出力内容を選び、名前には入力名の共通部分、自由な名前、日付・日時を使えます。</p>
+          </article>
+        </div>
+        <div class="supported-inputs">
+          <h3>読み込めるファイル</h3>
+          <dl>
+            <div><dt>動画</dt><dd>MP4 / MOV / MKV / AVI / WEBM / M4V</dd></div>
+            <div><dt>音声</dt><dd>MP3 / M4A / WAV</dd></div>
+          </dl>
+          <p>手元のファイルを選択するアプリです。WebサイトのURLから動画をダウンロードする機能ではありません。</p>
+        </div>
+      </section>
+
       <section class="cuda-section" id="cuda" aria-labelledby="cuda-title">
         <div class="cuda-copy reveal">
           <p class="section-index section-index--dark">02 / GPU TRANSCRIPTION</p>
@@ -279,21 +319,21 @@
             <span>PDF</span>
             <div>
               <h3>重複のないスライド</h3>
-              <p>前ページへ戻った場面や、複数動画間で再登場したスライドを除外します。</p>
+              <p>検出したスライドを、画像の縦横比を保ったPDFとして保存。最初に登場した順に並べ、ほぼ同じスライドの再登場を省きます。画像ファイルも選べば、PNGを個別に取り出して使えます。</p>
             </div>
           </article>
           <article>
             <span>TXT</span>
             <div>
               <h3>読める文字起こし</h3>
-              <p>動画はもちろん、MP3・M4A・WAVの音声にも対応。自然な言語検出とタイムスタンプ付きTXT・SRTで、録音を読み返せる形へ。</p>
+              <p>TXTには発話と開始・終了時刻を記録。別途生成するSRTは、字幕対応のプレーヤーや編集ソフトで利用できます。複数ファイルをまとめたSRTは、各ファイルの長さを使って時刻を連結します。</p>
             </div>
           </article>
           <article>
             <span>MD</span>
             <div>
               <h3>スライド別の講義ノート</h3>
-              <p>画像と、そのスライドが表示されていた間の発話をMarkdownへまとめます。</p>
+              <p>スライド画像と対応する発話を、Markdown形式のノートにまとめます。画像は相対パスで参照するため、ノートを別の場所へ移す場合は画像フォルダも一緒に移してください。AIによる自動要約ではなく、発話を整理した資料です。</p>
             </div>
           </article>
         </div>
@@ -353,6 +393,35 @@
           <img src="/screenshots/lectavo-audio.png" alt="MP3とM4Aを追加し、文字起こしと講義ノートを選択したLectavoの画面" width="1280" height="800" loading="lazy" />
           <figcaption>音声ファイルを追加すると、文字起こしとノートの出力へ自動で切り替わります。</figcaption>
         </figure>
+      </section>
+
+      <section class="guide questions" id="questions" aria-labelledby="questions-title">
+        <p class="section-index">BEFORE YOU START</p>
+        <h2 id="questions-title">使う前に、知っておきたいこと。</h2>
+        <details>
+          <summary>どのような手順で使いますか？</summary>
+          <div><ol><li>ホームから動画・音声を選ぶか、ファイルやフォルダをドロップします。</li><li>処理画面で出力内容・保存先・処理品質を選びます。必要ならスライドの検出範囲も指定します。</li><li>「処理を開始」を押します。進捗を確認でき、キャンセルも可能です。</li><li>完了画面から保存先、PDF、文字起こしを開きます。履歴から過去の処理も確認できます。</li></ol></div>
+        </details>
+        <details>
+          <summary>GPUやAPIキーは必要ですか？</summary>
+          <div><p>GPUも外部サービスのAPIキーも必須ではありません。CPUだけで動作します。対応するNVIDIA GPUと必要なCUDA／cuDNN環境があれば、文字起こしをGPUで実行できます。GPUを利用できない場合はCPUに自動で切り替え、その旨を表示します。速度はモデル・録音時間・PC性能によって異なります。</p></div>
+        </details>
+        <details>
+          <summary>ファイルは外部へ送信されますか？</summary>
+          <div><p>解析と文字起こしはPC上で実行し、動画・音声を文字起こし用の外部APIへ送信しません。初回のWhisperモデル取得とアプリの更新確認にはインターネット接続を使います。モデル取得後は、キャッシュがあればオフラインでも処理できます。</p></div>
+        </details>
+        <details>
+          <summary>結果は必ず正確になりますか？</summary>
+          <div><p>完全な検出・認識を保証するものではありません。細かなアニメーション、よく似たページ、短時間だけ表示されるスライドは、取り逃しや重複が生じることがあります。検出プリセット・しきい値・範囲指定で調整できます。文字起こしも雑音、専門用語、複数人の同時発話などに影響されるため、重要な内容は元の録音と照合してください。</p></div>
+        </details>
+        <details>
+          <summary>無音とエラーは見分けられますか？</summary>
+          <div><p>音量がほぼゼロなら「無音」、音はあるものの発話を認識できなければ「発話未検出」と表示します。モデルの取得・読み込み失敗は別のエラーとして案内します。無音を処理失敗として扱ったり、モデルエラーを無音として表示したりしません。</p></div>
+        </details>
+        <details>
+          <summary>自動要約や文字検索もできますか？</summary>
+          <div><p>現時点では、LLMによる自動要約やスライド画像のOCRは行いません。PDFの各ページは画像です。発話の検索・編集にはTXTやMarkdownを利用してください。音声だけの入力から、スライド画像やPDFは生成しません。</p></div>
+        </details>
       </section>
 
       <section class="download-section" id="download" aria-labelledby="download-title">

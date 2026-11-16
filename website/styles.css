@@ -697,6 +697,45 @@ h2 {
 
 .features--updates { padding-top: 0; }
 
+.guide {
+  width: min(calc(100% - 48px), calc(var(--max) - 48px));
+  margin: 0 auto;
+  padding: 0 0 100px;
+  scroll-margin-top: 100px;
+}
+
+.guide h2 { max-width: 900px; font-size: 36px; }
+.guide-intro { max-width: 760px; margin: 24px 0 42px; color: var(--muted); font-size: 17px; }
+.guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; }
+.guide-grid article { min-width: 0; padding: 28px 0; border-top: 1px solid var(--line); }
+.guide h3 { margin: 0 0 14px; font-size: 21px; line-height: 1.5; }
+.guide-grid p { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.9; }
+.supported-inputs { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--line-strong); }
+.supported-inputs dl { margin: 0; }
+.supported-inputs dl > div { display: grid; grid-template-columns: 80px minmax(0, 1fr); padding: 10px 0; gap: 16px; }
+.supported-inputs dt { font-weight: 600; }
+.supported-inputs dd { margin: 0; }
+.supported-inputs > p { margin: 20px 0 0; color: var(--muted); font-size: 14px; }
+.questions h2 { margin-bottom: 36px; }
+.questions details { border-top: 1px solid var(--line); }
+.questions details:last-child { border-bottom: 1px solid var(--line); }
+.questions summary { padding: 24px 8px; cursor: pointer; font-size: 18px; font-weight: 600; line-height: 1.6; }
+.questions summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius); }
+.questions details > div { max-width: 900px; padding: 0 8px 28px; color: var(--muted); font-size: 16px; }
+.questions details p { margin: 0; }
+.questions ol { margin: 0; padding-left: 24px; }
+.questions li + li { margin-top: 12px; }
+
+@media (max-width: 760px) {
+  .guide { width: calc(100% - 40px); padding-bottom: 72px; }
+  .guide h2 { font-size: 28px; }
+  .guide h3 { font-size: 19px; }
+  .guide-grid { grid-template-columns: minmax(0, 1fr); }
+  .guide-intro { font-size: 16px; margin-bottom: 28px; }
+  .questions summary { font-size: 17px; }
+  .supported-inputs dl > div { grid-template-columns: 48px minmax(0, 1fr); }
+}
+
 .features .heading-line:nth-child(2) {
   display: flex;
   flex-wrap: wrap;
