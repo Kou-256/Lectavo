@@ -58,6 +58,7 @@ from movie_slide_notes.core.processor import (
     discover_videos,
     natural_video_sort_key,
 )
+from movie_slide_notes.gui.controls import ElidedLabel
 from movie_slide_notes.gui.controls import NoWheelComboBox as QComboBox
 from movie_slide_notes.gui.design_tokens import LAYOUT, SPACING, build_stylesheet
 from movie_slide_notes.gui.i18n import (
@@ -66,7 +67,14 @@ from movie_slide_notes.gui.i18n import (
     tr,
     translate_widget_tree,
 )
-from movie_slide_notes.gui.settings_widget import ProcessingSettingsWidget
+from movie_slide_notes.gui.icons import icon as svg_icon
+from movie_slide_notes.gui.icons import icon_pixmap as svg_pixmap
+from movie_slide_notes.gui.icons import toggle_icon
+from movie_slide_notes.gui.settings_widget import (
+    FORM_LABEL_WIDTH,
+    ProcessingSettingsWidget,
+    separator,
+)
 from movie_slide_notes.gui.worker import ProcessingWorker
 from movie_slide_notes.media import AUDIO_EXTENSIONS, MEDIA_EXTENSIONS, VIDEO_EXTENSIONS
 from movie_slide_notes.paths import (
@@ -148,10 +156,19 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(14, 14, 14, 14)
         sidebar_layout.setSpacing(8)
 
+        brand_row = QHBoxLayout()
+        brand_row.setContentsMargins(6, 4, 0, 0)
+        brand_row.setSpacing(10)
+        self.brand_icon = QLabel()
+        app_icon = resource_path("assets", "app_icon.png")
+        if app_icon.exists():
+            self.brand_icon.setPixmap(QIcon(str(app_icon)).pixmap(QSize(26, 26)))
         self.brand_label = QLabel(APP_NAME)
         self.brand_label.setObjectName("AppName")
-        sidebar_layout.addWidget(self.brand_label)
-        sidebar_layout.addSpacing(18)
+        brand_row.addWidget(self.brand_icon)
+        brand_row.addWidget(self.brand_label, 1)
+        sidebar_layout.addLayout(brand_row)
+        sidebar_layout.addSpacing(22)
 
         self.nav_home = nav_button("ホーム")
         self.nav_process = nav_button("処理")
@@ -170,7 +187,7 @@ class MainWindow(QMainWindow):
             (self.nav_settings, "settings"),
             (self.nav_help, "help"),
         ]:
-            button.setIcon(QIcon(str(resource_path("assets", "icons", f"{icon_name}.svg"))))
+            button.setIcon(toggle_icon(icon_name, 20))
             button.setIconSize(QSize(20, 20))
         sidebar_layout.addWidget(self.nav_settings)
         sidebar_layout.addWidget(self.nav_help)
@@ -211,6 +228,8 @@ class MainWindow(QMainWindow):
         self.file_tabs.setObjectName("FileTabs")
         self.file_tabs.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.file_tabs.setTextElideMode(Qt.ElideMiddle)
+        self.file_tabs.setUniformItemSizes(True)
+        self.file_tabs.setSpacing(2)
         self.file_tabs.setAccessibleName(tr("入力ファイル"))
         self.file_tabs.setToolTip(
             tr("Ctrlで複数選択、Shiftで範囲選択できます。設定は全ファイルに適用されます。")
@@ -449,8 +468,13 @@ class MainWindow(QMainWindow):
         quality_grid.setColumnStretch(1, 1)
         ready_layout.addLayout(quality_grid)
         self.region_button = QPushButton("画面で検出範囲を指定")
+        self.region_button.setIcon(svg_icon("crop", 18))
+        self.region_button.setIconSize(QSize(18, 18))
         self.region_button.clicked.connect(self.edit_region)
-        ready_layout.addWidget(self.region_button)
+        region_row = QHBoxLayout()
+        region_row.addWidget(self.region_button)
+        region_row.addStretch(1)
+        ready_layout.addLayout(region_row)
         self.region_hint = QLabel()
         self.region_hint.setWordWrap(True)
         self.region_hint.setObjectName("Hint")
@@ -638,7 +662,10 @@ class MainWindow(QMainWindow):
         self.settings_output_path = QLineEdit()
         self.settings_output_path.setReadOnly(True)
         self.settings_output_browse = QPushButton("変更")
-        default_output_row.addWidget(QLabel("デフォルト出力先"))
+        default_output_label = QLabel("デフォルト出力先")
+        default_output_label.setFixedWidth(FORM_LABEL_WIDTH)
+        default_output_row.setSpacing(16)
+        default_output_row.addWidget(default_output_label)
         default_output_row.addWidget(self.settings_output_path, 1)
         default_output_row.addWidget(self.settings_output_browse)
         layout.addLayout(default_output_row)
@@ -1174,8 +1201,9 @@ class MainWindow(QMainWindow):
             self.video_statuses[Path(event.video_path)] = stage_label(event.stage)
             for index in range(self.file_tabs.count()):
                 item = self.file_tabs.item(index)
-                if item.data(Qt.UserRole) == Path(event.video_path):
-                    item.setText(f"{event.video_path.name}\n{stage_label(event.stage)}")
+                row = self.file_tabs.itemWidget(item)
+                if item.data(Qt.UserRole) == Path(event.video_path) and row is not None:
+                    row.set_status(stage_label(event.stage))
             self.running_title.setText(tr(f"{event.video_path.name} を処理しています"))
         self.running_stage.setText(stage_label(event.stage))
         self.running_detail.setText(tr(event.message))
@@ -1343,11 +1371,14 @@ class MainWindow(QMainWindow):
         self.file_tabs.blockSignals(True)
         self.file_tabs.clear()
         for path in self.videos:
-            status = tr(self.video_statuses.get(path, "待機中"))
-            item = QListWidgetItem(f"{path.name}\n{status}")
+            status = self.video_statuses.get(path, "待機中")
+            item = QListWidgetItem()
             item.setData(Qt.UserRole, path)
+            item.setData(Qt.AccessibleTextRole, f"{path.name} {tr(status)}")
             item.setToolTip(str(path))
+            item.setSizeHint(QSize(0, FILE_ROW_HEIGHT))
             self.file_tabs.addItem(item)
+            self.file_tabs.setItemWidget(item, FileTabRow(path, status))
             if path in selected:
                 item.setSelected(True)
             if path == current_path:
@@ -2203,13 +2234,6 @@ def nav_button(text: str) -> QPushButton:
     return button
 
 
-def separator() -> QFrame:
-    line = QFrame()
-    line.setFrameShape(QFrame.HLine)
-    line.setFrameShadow(QFrame.Plain)
-    return line
-
-
 def clear_layout(layout) -> None:
     while layout.count():
         item = layout.takeAt(0)
@@ -2249,6 +2273,53 @@ def history_row(entry: dict[str, str], delete_callback=None) -> QWidget:
         )
         layout.addWidget(delete_button)
     return row
+
+
+FILE_ROW_HEIGHT = 56
+
+
+def file_status_state(status: str) -> str:
+    lowered = status.lower()
+    if "エラー" in status or "error" in lowered:
+        return "error"
+    if status in {"待機中", "キャンセル", "Waiting", "Cancelled"}:
+        return "idle"
+    if status.startswith("完了") or lowered.startswith("completed"):
+        return "warning" if ("（" in status or "(" in status) else "done"
+    return "active"
+
+
+class FileTabRow(QWidget):
+    """One input file in the left rail: type icon, name, and colored status."""
+
+    def __init__(self, path: Path, status: str):
+        super().__init__()
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(10)
+        kind = "file-audio" if path.suffix.lower() in AUDIO_EXTENSIONS else "file-video"
+        self.kind_icon = QLabel()
+        self.kind_icon.setPixmap(svg_pixmap(kind, 20))
+        self.kind_icon.setFixedSize(22, 22)
+        layout.addWidget(self.kind_icon, 0, Qt.AlignVCenter)
+        text = QVBoxLayout()
+        text.setContentsMargins(0, 0, 0, 0)
+        text.setSpacing(1)
+        self.name_label = ElidedLabel(path.name)
+        self.name_label.setObjectName("FileName")
+        self.status_label = QLabel()
+        self.status_label.setObjectName("FileStatus")
+        text.addWidget(self.name_label)
+        text.addWidget(self.status_label)
+        layout.addLayout(text, 1)
+        self.set_status(status)
+
+    def set_status(self, status: str) -> None:
+        self.status_label.setText("● " + tr(status))
+        self.status_label.setProperty("state", file_status_state(status))
+        self.status_label.style().unpolish(self.status_label)
+        self.status_label.style().polish(self.status_label)
 
 
 def icon_path(name: str) -> str:

@@ -132,14 +132,43 @@ QListWidget#FileTabs {{
     outline: none;
 }}
 QListWidget#FileTabs::item {{
-    padding: 12px 8px;
-    border-bottom: 1px solid {colors.separator};
+    border: 1px solid transparent;
+    border-radius: {RADIUS.control}px;
+    margin: 0 2px;
+}}
+QListWidget#FileTabs::item:hover {{
+    background: {colors.control_hover};
 }}
 QListWidget#FileTabs::item:selected {{
     color: {colors.primary_text};
     background: {colors.accent_soft};
+    border-color: {colors.accent};
 }}
-QListWidget#FileTabs::item:focus {{ border: 1px solid {colors.accent}; }}
+QLabel#FileName {{
+    font-weight: 600;
+}}
+QLabel#FileStatus {{
+    font-size: 12px;
+    color: {colors.muted_text};
+}}
+QLabel#FileStatus[state="done"] {{ color: {colors.success}; }}
+QLabel#FileStatus[state="active"] {{ color: {colors.accent}; }}
+QLabel#FileStatus[state="warning"] {{ color: {colors.warning}; }}
+QLabel#FileStatus[state="error"] {{ color: {colors.error}; }}
+QFrame#Separator {{
+    background: {colors.separator};
+    border: none;
+}}
+QToolButton#Disclosure {{
+    border: none;
+    background: transparent;
+    padding: 0 4px;
+    color: {colors.secondary_text};
+    font-weight: 600;
+}}
+QToolButton#Disclosure:hover {{
+    color: {colors.primary_text};
+}}
 QFrame#Inspector {{
     background: {colors.surface};
     border-left: 1px solid {colors.separator};
@@ -207,8 +236,8 @@ QLabel#SlidePreview {{
     border-radius: {RADIUS.panel}px;
 }}
 QLabel#AppName {{
-    font-size: 15px;
-    font-weight: 600;
+    font-size: 17px;
+    font-weight: 700;
 }}
 QLabel#PageTitle {{
     font-size: 25px;
