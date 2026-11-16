@@ -150,6 +150,10 @@ try {
     $ReleaseNotes = @"
 Lectavo $Version
 
+- 0.4.0: Checkpoints completed slide analysis and transcripts; resume interrupted or failed jobs.
+- 0.4.0: Pre-run check for inputs, audio tracks, free space, model readiness, and GPU.
+- 0.4.0: Review slides to remove, reorder, and add missed scenes before rebuilding the PDF and notes.
+- 0.4.0: Videos without an audio track skip transcription instead of failing.
 - 0.3.1: Fixed 4K website layout, separated Home and Process, and added multi-select file tabs.
 - 0.3.1: Distinguishes silence, no detected speech, and model loading errors; repairs unreadable model files.
 - 0.3.1: Versioned x64 installer filenames, with a legacy alias for the 0.3.0 updater.

@@ -30,6 +30,13 @@ class ProcessingWorker(QObject):
     @Slot()
     def run(self) -> None:
         try:
+            if self.options.checkpoint_dir is not None:
+                from movie_slide_notes.core.checkpoint import CheckpointStore
+
+                try:
+                    CheckpointStore(self.options.checkpoint_dir).prune()
+                except OSError:
+                    pass
             result = process_batch(
                 self.videos,
                 self.output_dir,

@@ -68,6 +68,10 @@ class TranscriptionCancelled(RuntimeError):
     pass
 
 
+class NoAudioTrackError(RuntimeError):
+    """Raised when a media file has no audio stream to transcribe."""
+
+
 def transcribe_video(
     video_path: Path,
     output_dir: Path,
@@ -435,7 +439,7 @@ def extract_audio(
     try:
         audio_streams = [stream for stream in container.streams if stream.type == "audio"]
         if not audio_streams:
-            raise RuntimeError("動画に音声トラックがありません。")
+            raise NoAudioTrackError("動画に音声トラックがありません。")
         stream = audio_streams[0]
         resampler = AudioResampler(format="s16", layout="mono", rate=16000)
         with wave.open(str(audio_path), "wb") as output:
