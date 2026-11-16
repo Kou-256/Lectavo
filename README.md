@@ -1,4 +1,12 @@
-# Lectavo
+<p align="center">
+  <img src="assets/app_icon.png" alt="Lectavo icon" width="128" height="128" />
+</p>
+
+<h1 align="center">Lectavo</h1>
+
+<p align="center">講義動画を、スライドPDF・文字起こし・講義ノートへ。Windows向けの無料デスクトップアプリ。</p>
+
+<p align="center"><a href="https://lectavo.vercel.app"><strong>公式サイト</strong></a> ・ <a href="https://github.com/Kou-256/Lectavo/releases/latest"><strong>最新版をダウンロード</strong></a> ・ 日本語 ・ <a href="README.en.md">English</a></p>
 
 ## 0.4.0 の新機能
 
@@ -19,8 +27,6 @@
 - 無音、発話未検出、モデル読み込みエラーを区別して表示。開けないモデルは、通常ファイルへのキャッシュ修復または必要ファイルの再取得を試みます。全件失敗した場合は空の統合ノートを生成しません。
 - 配布ファイル名は `Lectavo-setup-0.3.1-x64.exe`。旧版更新機能用の `Lectavo-Setup.exe` は同じ内容の互換ファイルです。
 
-
-[日本語](README.md) | [English](README.en.md) | [公式サイト](https://lectavo.vercel.app) | [最新版をダウンロード](https://github.com/Kou-256/Lectavo/releases/latest)
 
 Lectavoは、講義・プレゼンテーション動画から重複のないスライドPDFを、動画・音声ファイルからタイムスタンプ付き文字起こし、SRT、Markdownノートを生成するWindowsデスクトップアプリです。
 
