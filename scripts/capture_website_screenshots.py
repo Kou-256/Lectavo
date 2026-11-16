@@ -7,6 +7,8 @@ import tempfile
 from pathlib import Path
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
+# Render at 2x so screenshots stay sharp on high-DPI displays.
+os.environ["QT_SCALE_FACTOR"] = "2"
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))

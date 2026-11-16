@@ -1607,3 +1607,8 @@ footer > a:not(.brand) {
 @media (prefers-reduced-motion: reduce) {
   .callout b { animation: none; }
 }
+
+/* Spacing after removing the workflow section ------------------------------ */
+.next-features h2 { margin-bottom: 36px; }
+.howto { padding-top: 120px; }
+.next-grid h3 { margin-top: 4px; }
