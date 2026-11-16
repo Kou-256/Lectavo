@@ -54,14 +54,46 @@ def align_segments_to_slides(
     return aligned
 
 
+def transcripts_for_starts(starts: Sequence[float], segments: Sequence[object]) -> list[str]:
+    """Return the transcript for each start time, independent of input order.
+
+    Each interval runs from its start to the next later start, so slides that
+    were reordered or removed during review still receive the speech that was
+    playing while they were on screen.
+    """
+    order = sorted(range(len(starts)), key=lambda index: (float(starts[index]), index))
+
+    class _Point:
+        def __init__(self, timestamp: float):
+            self.timestamp = timestamp
+
+    aligned = align_segments_to_slides([_Point(float(starts[i])) for i in order], segments)
+    result = [""] * len(starts)
+    for position, index in enumerate(order):
+        result[index] = aligned[position].transcript
+    return result
+
+
 def write_slide_markdown(
     video_title: str,
     slides: Sequence[object],
     segments: Sequence[object],
     output_path: Path,
+    transcripts: Sequence[str] | None = None,
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    aligned = align_segments_to_slides(slides, segments)
+    if transcripts is None:
+        aligned = align_segments_to_slides(slides, segments)
+    else:
+        aligned = [
+            SlideTranscript(
+                slide=slide,
+                start=float(getattr(slide, "timestamp")),
+                end=None,
+                transcript=text,
+            )
+            for slide, text in zip(slides, transcripts)
+        ]
 
     lines: list[str] = [f"# {video_title}", ""]
     if not aligned:

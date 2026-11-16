@@ -30,6 +30,7 @@ from ..slide_detector import (
     VideoReadError,
 )
 from ..transcriber import (
+    NoAudioTrackError,
     TranscriberUnavailableError,
     TranscriptionCancelled,
     TranscriptionConfig,
@@ -42,6 +43,7 @@ from ..transcriber import (
 from ..transcriber import (
     format_timestamp as format_transcript_timestamp,
 )
+from .checkpoint import CheckpointStore, config_fingerprint, restore_slides_to
 from .output_naming import OutputNamingConfig, output_stem
 
 cv2 = LazyModule("cv2")
@@ -105,6 +107,7 @@ class ProcessingOptions:
     output_mode: str = "per_video"
     show_progress: bool = False
     output_naming: OutputNamingConfig = field(default_factory=OutputNamingConfig)
+    checkpoint_dir: Path | None = None
 
 
 @dataclass
@@ -119,6 +122,9 @@ class ProcessResult:
     warnings: list[str] = field(default_factory=list)
     error: str | None = None
     cancelled: bool = False
+    output_stem: str = ""
+    reused_slides: bool = False
+    reused_transcript: bool = False
 
     @property
     def succeeded(self) -> bool:
@@ -135,7 +141,17 @@ class BatchResult:
     combined_markdown_path: Path | None = None
     combined_slide_count: int = 0
     combined_duplicate_count: int = 0
+    combined_slides: list[SlideRecord] = field(default_factory=list)
+    combined_occurrences: list[list[tuple[int, float]]] = field(default_factory=list)
+    combined_stem: str = ""
+    output_dir: Path | None = None
+    pdf_margin: float = 0.0
+    slide_region: tuple[float, float, float, float] | None = None
     warnings: list[str] = field(default_factory=list)
+
+    @property
+    def reused_count(self) -> int:
+        return sum(1 for result in self.results if result.reused_slides or result.reused_transcript)
 
     @property
     def success_count(self) -> int:
@@ -273,7 +289,13 @@ def process_batch(
                 )
                 continue
 
-        batch = BatchResult(results=results, output_mode=options.output_mode)
+        batch = BatchResult(
+            results=results,
+            output_mode=options.output_mode,
+            output_dir=output_dir,
+            pdf_margin=options.pdf_margin,
+            slide_region=options.slide_config.slide_region,
+        )
         if combined_mode and not is_cancelled(cancel_event):
             finalize_combined_outputs(
                 batch,
@@ -337,6 +359,18 @@ def finalize_combined_outputs(
     )
     batch.combined_slide_count = len(combined_slides)
     batch.combined_duplicate_count = duplicate_count
+    batch.combined_slides = combined_slides
+    batch.combined_stem = stem
+    stem_to_index: dict[str, int] = {}
+    for result_index, result in enumerate(batch.results):
+        stem_to_index.setdefault(result.video_path.stem, result_index)
+    batch.combined_occurrences = [
+        [
+            (stem_to_index.get(occurrence.video_title, 0), occurrence.start)
+            for occurrence in note.occurrences
+        ]
+        for note in combined_notes
+    ]
     if any(result.slides or result.stats for result in batch.results):
         emit_log(
             log_callback,
@@ -360,24 +394,34 @@ def finalize_combined_outputs(
 
     if options.operations.generate_markdown:
         batch.combined_markdown_path = output_dir / f"{stem}_lecture_notes.md"
-        write_combined_slide_markdown(
-            "Lectavo 講義ノート", combined_notes, batch.combined_markdown_path
-        )
-        audio_notes = [
-            audio_markdown(
-                result.video_path.stem,
-                result.transcription.segments,
-                result.transcription.warning if not result.transcription.segments else None,
-            )
-            for result in batch.results
-            if result.video_path.suffix.lower() in AUDIO_EXTENSIONS and result.transcription
-        ]
-        if audio_notes:
-            if not combined_notes:
-                batch.combined_markdown_path.write_text("# Lectavo 講義ノート\n", encoding="utf-8")
-            with batch.combined_markdown_path.open("a", encoding="utf-8") as handle:
-                handle.write("\n\n" + "\n\n".join(audio_notes))
+        write_combined_notes(batch.results, combined_notes, batch.combined_markdown_path)
         emit_log(log_callback, f"統合講義ノートを生成しました: {batch.combined_markdown_path}")
+
+
+COMBINED_NOTES_TITLE = "Lectavo 講義ノート"
+
+
+def write_combined_notes(
+    results: Sequence[ProcessResult],
+    combined_notes: Sequence[CombinedSlideNote],
+    path: Path,
+) -> Path:
+    write_combined_slide_markdown(COMBINED_NOTES_TITLE, combined_notes, path)
+    audio_notes = [
+        audio_markdown(
+            result.video_path.stem,
+            result.transcription.segments,
+            result.transcription.warning if not result.transcription.segments else None,
+        )
+        for result in results
+        if result.video_path.suffix.lower() in AUDIO_EXTENSIONS and result.transcription
+    ]
+    if audio_notes:
+        if not combined_notes:
+            path.write_text(f"# {COMBINED_NOTES_TITLE}\n", encoding="utf-8")
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write("\n\n" + "\n\n".join(audio_notes))
+    return path
 
 
 def collect_combined_slides(
@@ -527,7 +571,10 @@ def process_video(
     )
     video_output_dir = output_dir / video_stem if options.per_video_dirs else output_dir
     video_output_dir.mkdir(parents=True, exist_ok=True)
-    result = ProcessResult(video_path=video_path, output_dir=video_output_dir)
+    result = ProcessResult(
+        video_path=video_path, output_dir=video_output_dir, output_stem=video_stem
+    )
+    store = CheckpointStore(options.checkpoint_dir) if options.checkpoint_dir else None
     audio_only = video_path.suffix.lower() in AUDIO_EXTENSIONS
     if audio_only and not options.operations.transcribe_audio:
         result.error = "音声ファイルを処理するには文字起こしを有効にしてください。"
@@ -548,7 +595,36 @@ def process_video(
         overall_total,
     )
 
-    if options.operations.extract_slides and not audio_only:
+    slide_key = config_fingerprint(options.slide_config, options.duplicate_config)
+    final_slides_dir = video_output_dir / "slides"
+    final_prefix = "" if options.per_video_dirs else video_stem
+    cached_slides = (
+        store.load_slides(video_path, slide_key, video_stem)
+        if store is not None and options.operations.extract_slides and not audio_only
+        else None
+    )
+    if cached_slides is not None:
+        slides, stats = cached_slides
+        result.slides = restore_slides_to(slides, final_slides_dir, final_prefix)
+        result.stats = stats
+        result.reused_slides = True
+        emit_log(
+            log_callback,
+            f"{video_path.name}: 保存済みのスライド解析を再利用しました（{len(result.slides)} 枚）",
+        )
+        emit_progress(
+            progress_callback,
+            video_path,
+            video_index,
+            video_count,
+            "reused",
+            1,
+            1,
+            "保存済みのスライド解析を再利用しました",
+            overall_base + 60,
+            overall_total,
+        )
+    elif options.operations.extract_slides and not audio_only:
         emit_log(log_callback, f"{video_path.name}: スライド解析を開始しました")
         detector = SlideDetector(options.slide_config)
         duplicate_filter = DuplicateFilter(options.duplicate_config)
@@ -570,16 +646,23 @@ def process_video(
         try:
             slides, stats = detector.extract_slides(
                 video_path=video_path,
-                output_dir=video_output_dir / "slides",
+                output_dir=(
+                    store.begin_slides(video_path, slide_key)
+                    if store is not None
+                    else final_slides_dir
+                ),
                 video_stem=video_stem,
                 duplicate_filter=duplicate_filter,
                 show_progress=options.show_progress,
                 progress_callback=slide_progress,
                 cancel_event=cancel_event,
-                filename_prefix=None if not options.per_video_dirs else "",
+                filename_prefix="" if store is not None or options.per_video_dirs else None,
             )
         except SlideDetectionCancelled as exc:
             raise ProcessingCancelled(str(exc)) from exc
+        if store is not None:
+            store.save_slides(video_path, slide_key, slides, stats)
+            slides = restore_slides_to(slides, final_slides_dir, final_prefix)
         result.slides = slides
         result.stats = stats
         emit_log(
@@ -633,16 +716,44 @@ def process_video(
                 overall_total,
             )
 
+        transcript_key = config_fingerprint(
+            options.transcription_config.model_size, options.transcription_config.language
+        )
+        use_transcript_cache = store is not None and not options.transcription_config.keep_audio
+        cached_transcript = (
+            store.load_transcript(video_path, transcript_key, video_output_dir, video_stem)
+            if use_transcript_cache
+            else None
+        )
         try:
-            result.transcription = transcribe_video(
-                video_path=video_path,
-                output_dir=video_output_dir,
-                video_stem=video_stem,
-                config=options.transcription_config,
-                progress_callback=transcribe_progress,
-                cancel_event=cancel_event,
-                duration_seconds=result.stats.duration_seconds if result.stats else None,
-            )
+            if cached_transcript is not None:
+                result.transcription = cached_transcript
+                result.reused_transcript = True
+                emit_log(log_callback, f"{video_path.name}: 保存済みの文字起こしを再利用しました")
+                emit_progress(
+                    progress_callback,
+                    video_path,
+                    video_index,
+                    video_count,
+                    "reused",
+                    1,
+                    1,
+                    "保存済みの文字起こしを再利用しました",
+                    overall_base + 95,
+                    overall_total,
+                )
+            else:
+                result.transcription = transcribe_video(
+                    video_path=video_path,
+                    output_dir=video_output_dir,
+                    video_stem=video_stem,
+                    config=options.transcription_config,
+                    progress_callback=transcribe_progress,
+                    cancel_event=cancel_event,
+                    duration_seconds=result.stats.duration_seconds if result.stats else None,
+                )
+                if use_transcript_cache:
+                    store.save_transcript(video_path, transcript_key, result.transcription)
             if result.transcription.warning:
                 result.warnings.append(result.transcription.warning)
                 emit_log(log_callback, f"{video_path.name}: {result.transcription.warning}")
@@ -656,6 +767,12 @@ def process_video(
                 result.error = warning
             result.warnings.append(warning)
             emit_log(log_callback, f"{video_path.name}: 文字起こしをスキップしました - {warning}")
+        except NoAudioTrackError:
+            warning = "音声トラックがないため、文字起こしをスキップしました。"
+            if audio_only:
+                result.error = warning
+            result.warnings.append(warning)
+            emit_log(log_callback, f"{video_path.name}: {warning}")
         except TranscriptionCancelled as exc:
             raise ProcessingCancelled(str(exc)) from exc
         except Exception as exc:

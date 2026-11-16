@@ -107,12 +107,27 @@
     <title>Lectavo | 講義動画からスライドPDF・文字起こしを自動生成</title>
   </head>
   <body>
+    <svg class="icon-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2.5"/><path d="m17 10 4-2.5v9L17 14"/></symbol>
+      <symbol id="i-detect" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="m8 11 2.5 2.5L16 8"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+      <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 5v14M15 9v6M19 7v10M21 12h0"/></symbol>
+      <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></symbol>
+      <symbol id="i-scissors" viewBox="0 0 24 24"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3"/><rect x="8" y="8" width="8" height="8" rx="1"/></symbol>
+      <symbol id="i-merge" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M10 6.5h4a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-4"/><path d="M17 12h4"/></symbol>
+      <symbol id="i-notes" viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="6" rx="1.2"/><path d="M14 5h7M14 9h5M3 14h18M3 18h12"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></symbol>
+      <symbol id="i-resume" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="m10 9 5 3-5 3z"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="6" rx="1.5"/><rect x="13" y="4" width="8" height="6" rx="1.5"/><rect x="3" y="14" width="8" height="6" rx="1.5"/><path d="M17 14v6M14 17h6"/></symbol>
+    </svg>
     <header class="site-header">
       <a class="brand" href="#top" aria-label="Lectavo ホーム">
         <img src="/app-icon.png" alt="" width="38" height="38" />
         <span>Lectavo</span>
       </a>
       <nav aria-label="メインナビゲーション">
+        <a href="#howto">使い方</a>
         <a href="#capabilities">できること</a>
         <a href="#cuda">CUDA</a>
         <a href="#screens">画面</a>
@@ -189,26 +204,31 @@
       <section class="flow reveal" aria-label="Lectavoの処理フロー">
         <div class="flow-track" aria-hidden="true"><span></span></div>
         <div class="flow-node is-active" data-flow-step="0">
+          <svg class="icon flow-icon" aria-hidden="true"><use href="#i-video"/></svg>
           <span>01</span>
           <strong>動画</strong>
           <small>MP4 / MOV / MKV</small>
         </div>
         <div class="flow-node" data-flow-step="1">
+          <svg class="icon flow-icon" aria-hidden="true"><use href="#i-detect"/></svg>
           <span>02</span>
           <strong>スライド検出</strong>
           <small>SSIM + 差分解析</small>
         </div>
         <div class="flow-node" data-flow-step="2">
+          <svg class="icon flow-icon" aria-hidden="true"><use href="#i-layers"/></svg>
           <span>03</span>
           <strong>重複除去</strong>
           <small>pHash + SSIM</small>
         </div>
         <div class="flow-node" data-flow-step="3">
+          <svg class="icon flow-icon" aria-hidden="true"><use href="#i-wave"/></svg>
           <span>04</span>
           <strong>文字起こし</strong>
           <small>faster-whisper</small>
         </div>
         <div class="flow-node" data-flow-step="4">
+          <svg class="icon flow-icon" aria-hidden="true"><use href="#i-doc"/></svg>
           <span>05</span>
           <strong>資料完成</strong>
           <small>PDF / TXT / SRT / MD</small>
@@ -218,32 +238,114 @@
         </p>
       </section>
 
+      <section class="howto reveal" id="howto" aria-labelledby="howto-title">
+        <p class="section-index">HOW TO USE</p>
+        <h2 id="howto-title">はじめてでも、4ステップ。</h2>
+        <p class="guide-intro">インストールしたら、あとは画面の順番どおりに進むだけです。専門的な設定は必要なときだけ。</p>
+        <ol class="howto-steps">
+          <li>
+            <svg class="howto-art" viewBox="0 0 240 150" role="img" aria-labelledby="howto-1">
+              <title id="howto-1">動画ファイルを画面にドロップするイラスト</title>
+              <rect x="20" y="22" width="200" height="112" rx="12" class="art-window"/>
+              <rect x="40" y="46" width="160" height="74" rx="10" class="art-drop"/>
+              <g class="art-float">
+                <rect x="98" y="8" width="44" height="54" rx="6" class="art-file"/>
+                <path d="m112 27 14 8-14 8z" class="art-accent-fill"/>
+              </g>
+              <path d="M120 74v24m-9-9 9 9 9-9" class="art-accent-line"/>
+            </svg>
+            <span class="howto-number">STEP 1</span>
+            <h3>動画・音声を追加</h3>
+            <p>ファイルやフォルダをドロップ。複数の動画も自然な順番で並びます。</p>
+          </li>
+          <li>
+            <svg class="howto-art" viewBox="0 0 240 150" role="img" aria-labelledby="howto-2">
+              <title id="howto-2">出力内容のチェックボックスを選ぶイラスト</title>
+              <rect x="40" y="16" width="160" height="118" rx="12" class="art-window"/>
+              <g class="art-rows">
+                <rect x="58" y="36" width="18" height="18" rx="5" class="art-check"/>
+                <path d="m62 45 4 4 7-8" class="art-check-mark"/>
+                <rect x="86" y="40" width="80" height="10" rx="5" class="art-bar"/>
+                <rect x="58" y="66" width="18" height="18" rx="5" class="art-check"/>
+                <path d="m62 75 4 4 7-8" class="art-check-mark"/>
+                <rect x="86" y="70" width="96" height="10" rx="5" class="art-bar"/>
+                <rect x="58" y="96" width="18" height="18" rx="5" class="art-box"/>
+                <rect x="86" y="100" width="64" height="10" rx="5" class="art-bar art-bar--muted"/>
+              </g>
+            </svg>
+            <span class="howto-number">STEP 2</span>
+            <h3>出力内容を選ぶ</h3>
+            <p>スライドPDF、文字起こし＋講義ノート、画像ファイルから必要なものを。</p>
+          </li>
+          <li>
+            <svg class="howto-art" viewBox="0 0 240 150" role="img" aria-labelledby="howto-3">
+              <title id="howto-3">開始前のチェック項目と開始ボタンのイラスト</title>
+              <rect x="22" y="16" width="196" height="118" rx="12" class="art-window"/>
+              <path d="M62 34 44 41v14c0 10 7.6 18 18 20 10.4-2 18-10 18-20V41z" class="art-shield"/>
+              <path d="m54 54 6 6 10-11" class="art-accent-line"/>
+              <circle cx="104" cy="44" r="5" class="art-ok"/><rect x="116" y="40" width="74" height="8" rx="4" class="art-bar"/>
+              <circle cx="104" cy="64" r="5" class="art-ok"/><rect x="116" y="60" width="60" height="8" rx="4" class="art-bar"/>
+              <circle cx="104" cy="84" r="5" class="art-warn"/><rect x="116" y="80" width="68" height="8" rx="4" class="art-bar"/>
+              <rect x="122" y="100" width="76" height="22" rx="11" class="art-accent-fill"/>
+              <path d="m154 105 9 6-9 6z" fill="#fff"/>
+            </svg>
+            <span class="howto-number">STEP 3</span>
+            <h3>チェックして開始</h3>
+            <p>「処理を開始」で進捗を表示。次のバージョンでは開始前に空き容量・モデル・GPU・音声も自動で確認します。</p>
+          </li>
+          <li>
+            <svg class="howto-art" viewBox="0 0 240 150" role="img" aria-labelledby="howto-4">
+              <title id="howto-4">抽出スライドを並べ替え・削除・追加してPDFにするイラスト</title>
+              <rect x="16" y="16" width="208" height="118" rx="12" class="art-window"/>
+              <rect x="32" y="32" width="52" height="34" rx="5" class="art-slide"/>
+              <rect x="94" y="32" width="52" height="34" rx="5" class="art-slide art-slide--removed"/>
+              <path d="m110 41 20 16m0-16-20 16" class="art-remove"/>
+              <rect x="156" y="32" width="52" height="34" rx="5" class="art-slide"/>
+              <rect x="32" y="78" width="52" height="34" rx="5" class="art-slide"/>
+              <rect x="94" y="78" width="52" height="34" rx="5" class="art-add"/>
+              <path d="M120 86v18m-9-9h18" class="art-accent-line"/>
+              <path d="M164 80h28l8 8v26h-36z" class="art-file"/>
+              <text x="182" y="105" text-anchor="middle" class="art-label">PDF</text>
+            </svg>
+            <span class="howto-number">STEP 4</span>
+            <h3>確認して仕上げる</h3>
+            <p>保存先・PDF・文字起こしをすぐ開けます。履歴から過去の処理も確認できます。</p>
+          </li>
+        </ol>
+      </section>
+
       <section class="guide reveal" id="capabilities" aria-labelledby="capabilities-title">
         <p class="section-index">WHAT YOU CAN DO</p>
         <h2 id="capabilities-title">動画と録音を、<br />読み返せる資料に。</h2>
         <p class="guide-intro">講義の復習、研修の振り返り、プレゼン資料の整理に。手元のファイルを選ぶだけで、画像・文字・字幕として保存できます。</p>
         <div class="guide-grid">
           <article>
+            <span class="guide-icon"><svg class="icon" aria-hidden="true"><use href="#i-detect"/></svg></span>
             <h3>長い講義から、スライドだけを取り出す</h3>
             <p>動画を一定間隔で確認し、スライドが大きく変わった場面を画像に保存。レーザーポインターやマウスの小さな動きはできるだけ除外し、抽出した画像を1ページ1枚のPDFにします。見返したいページを、動画を再生し直さずに探せます。</p>
           </article>
           <article>
+            <span class="guide-icon"><svg class="icon" aria-hidden="true"><use href="#i-merge"/></svg></span>
             <h3>分割された動画を、1つの資料にまとめる</h3>
             <p>複数ファイルをCtrl／Shiftで選択、またはフォルダごと追加。ファイル名の自然順（01、02、…、10）で処理し、動画をまたいで重複するスライドを取り除きます。前のページへ戻った場面も、ほぼ同じ画像ならPDFには一度だけ掲載します。</p>
           </article>
           <article>
+            <span class="guide-icon"><svg class="icon" aria-hidden="true"><use href="#i-wave"/></svg></span>
             <h3>動画の音声や録音を、文字で読む</h3>
             <p>faster-whisperが発話を文字起こしし、時刻付きテキストと字幕ファイルを保存します。MP3・M4A・WAVの音声だけでも利用可能。言語は自然に検出するほか、日本語・英語などを指定でき、聞き直したい箇所を時刻からたどれます。</p>
           </article>
           <article>
+            <span class="guide-icon"><svg class="icon" aria-hidden="true"><use href="#i-notes"/></svg></span>
             <h3>スライドと、そのときの説明を並べる</h3>
             <p>スライドの表示時刻と発話のタイムスタンプを照合し、画像と対応する文字起こしをMarkdownの講義ノートへ整理。音声だけの場合は、画像なしの時刻付きノートを作ります。説明を読みながら、どのページの話か確認できます。</p>
           </article>
           <article>
+            <span class="guide-icon"><svg class="icon" aria-hidden="true"><use href="#i-scissors"/></svg></span>
             <h3>登壇者や操作パネルを、抽出範囲から外す</h3>
             <p>動画プレビュー上で、資料のある範囲とページ番号の位置をドラッグ指定。時刻を変えて確認したり、数値で微調整したりできます。指定した範囲は同じ処理の全動画に適用されるので、画面構成が違う動画は分けて処理してください。</p>
           </article>
           <article>
+            <span class="guide-icon"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg></span>
             <h3>まとめて保存も、ファイル別の保存も</h3>
             <p>「まとめて出力」ではPDF・文字起こし・字幕・ノートをそれぞれ1つに統合。「動画ごとに出力」では入力ごとにフォルダを分けます。保存先や出力内容を選び、名前には入力名の共通部分、自由な名前、日付・日時を使えます。</p>
           </article>
@@ -352,6 +454,32 @@
           <article>
             <span>STARTUP</span>
             <div><h3>開いたら、すぐ次の操作へ。</h3><p>画像・音声の処理ライブラリは必要なときに読み込む構成へ。すでに起動していれば既存のウィンドウを表示し、重複起動も防ぎます。</p></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="next-features reveal" id="next" aria-labelledby="next-title">
+        <p class="section-index">NEXT VERSION</p>
+        <h2 id="next-title">やり直しの負担を、減らす。</h2>
+        <p class="guide-intro">次のバージョンでは、機能を増やすより先に「長い処理を安心して任せられること」を優先しています。</p>
+        <div class="next-grid">
+          <article>
+            <span class="next-icon"><svg class="icon" aria-hidden="true"><use href="#i-resume"/></svg></span>
+            <span class="badge">次のバージョンで追加予定</span>
+            <h3>途中保存・処理再開</h3>
+            <p>アプリを閉じたりエラーが起きたりしても、完了したスライド解析と文字起こしを再利用。失敗した文字起こしだけを再実行できます。</p>
+          </article>
+          <article>
+            <span class="next-icon"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg></span>
+            <span class="badge">次のバージョンで追加予定</span>
+            <h3>処理前チェック</h3>
+            <p>モデルの準備状況、GPU、出力先の空き容量、音声トラックを開始前に確認。問題があれば理由と対処を表示します。</p>
+          </article>
+          <article>
+            <span class="next-icon"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg></span>
+            <span class="badge">次のバージョンで追加予定</span>
+            <h3>スライドの確認・修正</h3>
+            <p>抽出画像を一覧で確認し、不要ページの削除、ドラッグでの並べ替え、取り逃した場面の追加をしてからPDFと講義ノートを確定できます。</p>
           </article>
         </div>
       </section>

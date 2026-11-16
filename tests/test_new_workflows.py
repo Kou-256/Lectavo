@@ -177,9 +177,11 @@ class NewWorkflowTests(unittest.TestCase):
                 )
             self.assertEqual(result.success_count, 3)
             self.assertIsNone(result.combined_pdf_path)
-            self.assertIn("00:00:10,000", result.combined_srt_path.read_text())
-            self.assertIn("Audio test", result.combined_markdown_path.read_text())
-            self.assertEqual(result.combined_markdown_path.read_text().count("## Transcript"), 3)
+            self.assertIn("00:00:10,000", result.combined_srt_path.read_text(encoding="utf-8"))
+            self.assertIn("Audio test", result.combined_markdown_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                result.combined_markdown_path.read_text(encoding="utf-8").count("## Transcript"), 3
+            )
 
     def test_canvas_letterbox_mapping_and_real_cropped_png(self):
         canvas = RegionCanvas()
