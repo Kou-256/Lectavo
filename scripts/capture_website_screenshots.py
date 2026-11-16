@@ -37,7 +37,9 @@ def main() -> int:
     app = QApplication.instance() or QApplication([])
     app.setApplicationName("Lectavo Screenshot")
     for font_name in ("YuGothR.ttc", "meiryo.ttc"):
-        QFontDatabase.addApplicationFont(str(Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts" / font_name))
+        QFontDatabase.addApplicationFont(
+            str(Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts" / font_name)
+        )
     app.setFont(QFont("Yu Gothic UI", 10))
     set_ui_language("ja")
 
@@ -80,7 +82,10 @@ def main() -> int:
     QTest.qWait(700)
     capture(ready_window, docs_dir / "lectavo-ready.png")
 
-    ready_window.videos = [Path(r"C:\音声サンプル\インタビュー-01.mp3"), Path(r"C:\音声サンプル\インタビュー-02.m4a")]
+    ready_window.videos = [
+        Path(r"C:\音声サンプル\インタビュー-01.mp3"),
+        Path(r"C:\音声サンプル\インタビュー-02.m4a"),
+    ]
     ready_window._refresh_video_list()
     ready_window._update_naming_preview()
     ready_window._sync_input_kind()
@@ -88,6 +93,7 @@ def main() -> int:
 
     import cv2
     import numpy as np
+
     image = QImage(1280, 720, QImage.Format_RGB888)
     image.fill(QColor("#222b30"))
     painter = QPainter(image)
@@ -96,20 +102,28 @@ def main() -> int:
     painter.setFont(QFont("Segoe UI", 32))
     painter.drawText(85, 140, "Research methods")
     painter.setFont(QFont("Segoe UI", 19))
-    for index, text in enumerate(("01  Define a question", "02  Collect evidence", "03  Compare the results")):
+    for index, text in enumerate(
+        ("01  Define a question", "02  Collect evidence", "03  Compare the results")
+    ):
         painter.drawText(85, 260 + index * 100, text)
     painter.setFont(QFont("Segoe UI", 15))
     painter.drawText(900, 645, "12")
     painter.setPen(QColor("#b6c5c9"))
     painter.drawText(1000, 350, "Speaker")
     painter.end()
-    pixels = np.frombuffer(image.bits(), np.uint8).reshape(720, image.bytesPerLine())[:, :1280 * 3].reshape(720, 1280, 3)
+    pixels = (
+        np.frombuffer(image.bits(), np.uint8)
+        .reshape(720, image.bytesPerLine())[:, : 1280 * 3]
+        .reshape(720, 1280, 3)
+    )
     preview_path = TEMP_ROOT / "lecture-sample.avi"
     writer = cv2.VideoWriter(str(preview_path), cv2.VideoWriter_fourcc(*"MJPG"), 1, (1280, 720))
     for _ in range(3):
         writer.write(cv2.cvtColor(pixels, cv2.COLOR_RGB2BGR))
     writer.release()
-    selector = RegionSelector([preview_path], (25 / 1280, 45 / 720, 940 / 1280, 630 / 720), (0.9, 0.9, 0.09, 0.08))
+    selector = RegionSelector(
+        [preview_path], (25 / 1280, 45 / 720, 940 / 1280, 630 / 720), (0.9, 0.9, 0.09, 0.08)
+    )
     selector.source.setItemText(0, "講義サンプル.avi")
     selector.show()
     for _ in range(100):
@@ -121,8 +135,17 @@ def main() -> int:
     capture(selector, docs_dir / "lectavo-region.png")
     selector.close()
 
+    capture_review_and_preflight(ready_window, docs_dir)
+
     site_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("lectavo-home.png", "lectavo-ready.png", "lectavo-audio.png", "lectavo-region.png"):
+    for name in (
+        "lectavo-home.png",
+        "lectavo-ready.png",
+        "lectavo-audio.png",
+        "lectavo-region.png",
+        "lectavo-review.png",
+        "lectavo-preflight.png",
+    ):
         shutil.copy2(docs_dir / name, site_dir / name)
 
     icon_destination = ROOT / "website" / "public" / "app-icon.png"
@@ -132,6 +155,113 @@ def main() -> int:
     ready_window.close()
     shutil.rmtree(TEMP_ROOT, ignore_errors=True)
     return 0
+
+
+def drawn_slide(title: str, lines: tuple[str, ...], accent: str):
+    import numpy as np
+
+    image = QImage(1280, 720, QImage.Format_RGB888)
+    image.fill(QColor("#ffffff"))
+    painter = QPainter(image)
+    painter.fillRect(0, 0, 1280, 120, QColor(accent))
+    painter.setPen(QColor("#ffffff"))
+    painter.setFont(QFont("Segoe UI", 34))
+    painter.drawText(70, 82, title)
+    painter.setPen(QColor("#1f2d33"))
+    painter.setFont(QFont("Segoe UI", 21))
+    for index, text in enumerate(lines):
+        painter.drawText(90, 230 + index * 95, text)
+    seed = sum(map(ord, title))
+    for block in range(3):
+        x = 640 + (seed * (block + 3)) % 420
+        y = 180 + (seed * (block + 5)) % 330
+        color = QColor(accent).darker(100 + 40 * block)
+        painter.fillRect(x, y, 140 + (seed * block) % 120, 90 + (seed * 7) % 80, color)
+    painter.fillRect(0, 660, 1280, 60, QColor(accent).lighter(150))
+    painter.end()
+    return (
+        np.frombuffer(image.bits(), np.uint8)
+        .reshape(720, image.bytesPerLine())[:, : 1280 * 3]
+        .reshape(720, 1280, 3)
+        .copy()
+    )
+
+
+def capture_review_and_preflight(parent, docs_dir: Path) -> None:
+    import cv2
+
+    from movie_slide_notes.core.preflight import (
+        LEVEL_INFO,
+        LEVEL_OK,
+        LEVEL_WARNING,
+        PreflightReport,
+    )
+    from movie_slide_notes.core.processor import (
+        OperationOptions,
+        ProcessingOptions,
+        process_batch,
+    )
+    from movie_slide_notes.gui.preflight_dialog import PreflightDialog
+    from movie_slide_notes.gui.slide_review_dialog import SlideReviewDialog
+
+    slides = [
+        ("Research methods", ("01  Define a question", "02  Collect evidence"), "#0f8f8a"),
+        ("Asking a question", ("Scope and assumptions", "What would change our mind?"), "#2563eb"),
+        ("Collecting evidence", ("Surveys and interviews", "Logs and measurements"), "#7c3aed"),
+        ("Comparing results", ("Effect size", "Confidence intervals"), "#d97706"),
+        ("Summary", ("Question -> Evidence -> Result", "Next week: case study"), "#0f8f8a"),
+    ]
+    video = TEMP_ROOT / "講義サンプル.avi"
+    writer = cv2.VideoWriter(str(video), cv2.VideoWriter_fourcc(*"MJPG"), 2, (1280, 720))
+    for title, lines, accent in slides:
+        frame = cv2.cvtColor(drawn_slide(title, lines, accent), cv2.COLOR_RGB2BGR)
+        for _ in range(6):
+            writer.write(frame)
+    writer.release()
+    batch = process_batch(
+        [video],
+        TEMP_ROOT / "review-output",
+        ProcessingOptions(
+            operations=OperationOptions(True, True, False, False, False), output_mode="per_video"
+        ),
+    )
+    review = SlideReviewDialog(batch, None, parent)
+    review.resize(1280, 760)
+    review.show()
+    review.grid.setCurrentRow(2)
+    QTest.qWait(500)
+    capture(review, docs_dir / "lectavo-review.png")
+    review.dirty.clear()
+    review.close()
+
+    report = PreflightReport()
+    report.add(
+        LEVEL_WARNING,
+        "model",
+        "文字起こしモデル（small）を初回ダウンロードします",
+        "約 484 MBのダウンロードにはネットワーク接続が必要です。",
+    )
+    report.add(
+        LEVEL_WARNING,
+        "audio",
+        "画面録画-03.mp4: 音声トラックがありません",
+        "この動画は文字起こしをスキップし、スライドだけを出力します。",
+    )
+    report.add(
+        LEVEL_INFO,
+        "gpu",
+        "GPUが利用できます",
+        "文字起こし処理を「GPU（CUDA）」にすると速くなります。",
+    )
+    report.add(LEVEL_OK, "input", "3 件のファイルを読み込めます", "合計 1:32:05")
+    report.add(LEVEL_OK, "disk", "出力先の空き容量は十分です", "空き 120.4 GB")
+    preflight = PreflightDialog(parent)
+    preflight.resize(580, 600)
+    preflight.show()
+    preflight.show_report(report)
+    QTest.qWait(400)
+    capture(preflight, docs_dir / "lectavo-preflight.png")
+    preflight.close()
 
 
 if __name__ == "__main__":

@@ -378,7 +378,7 @@ def _translate_english(source: str) -> str:
         (r"削除 (\d+) 枚", r"\1 removed"),
         (r"追加 (\d+) 枚", r"\1 added"),
         (r"(\d+) 枚", r"\1 slides"),
-        (r"(\d+) 件のファイルを読み込めます", r"\1 files can be read"),
+        (r"(\d+) 件のファイルを読み込めます", r"Readable files: \1"),
         (r"合計 (.+)", r"Total \1"),
         (r"(.+): ファイルが見つかりません", r"\1: file not found"),
         (r"(.+): ファイルを読み込めません", r"\1: cannot read the file"),

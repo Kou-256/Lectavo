@@ -353,5 +353,5 @@ def format_hours(seconds: float) -> str:
     hours, remainder = divmod(total, 3600)
     minutes, secs = divmod(remainder, 60)
     if hours:
-        return f"{hours}時間{minutes:02d}分"
-    return f"{minutes}分{secs:02d}秒"
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"

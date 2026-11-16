@@ -161,7 +161,7 @@ class Release031Tests(unittest.TestCase):
                 self.assertEqual(len(window.videos), 3)
                 window._select_page("processing")
                 window.remove_selected_files()
-                self.assertEqual(window.videos, [paths[1]])
+                self.assertEqual(window.videos, [paths[1].resolve()])
             finally:
                 window.close()
 

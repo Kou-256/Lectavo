@@ -66,17 +66,18 @@
             "@id": "https://lectavo.vercel.app/#application",
             "name": "Lectavo",
             "url": "https://lectavo.vercel.app/",
-            "downloadUrl": "https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.3.1-x64.exe",
+            "downloadUrl": "https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.4.0-x64.exe",
             "image": "https://lectavo.vercel.app/lectavo-og.png",
             "screenshot": [
               "https://lectavo.vercel.app/screenshots/lectavo-home.png",
-              "https://lectavo.vercel.app/screenshots/lectavo-ready.png"
+              "https://lectavo.vercel.app/screenshots/lectavo-ready.png",
+              "https://lectavo.vercel.app/screenshots/lectavo-review.png"
             ],
             "description": "講義動画から重複のないスライドPDF、タイムスタンプ付き文字起こし、講義ノートを自動生成します。",
             "applicationCategory": "EducationalApplication",
             "applicationSubCategory": "Lecture note generator",
             "operatingSystem": "Windows 10, Windows 11",
-            "softwareVersion": "0.3.1",
+            "softwareVersion": "0.4.0",
             "softwareRequirements": "Windows x64",
             "featureList": [
               "スライド変化検出",
@@ -87,7 +88,10 @@
               "講義ノートMarkdown生成",
               "MP3・M4A・WAV文字起こし",
               "プレビュー上のスライド範囲指定",
-              "ユーザー同意後のアプリ更新"
+              "ユーザー同意後のアプリ更新",
+              "途中保存と処理再開",
+              "処理前チェック",
+              "スライドの確認・修正"
             ],
             "isAccessibleForFree": true,
             "offers": {
@@ -155,7 +159,7 @@
           <div class="hero-actions">
             <a
               class="button button--large"
-              href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.3.1-x64.exe"
+              href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.4.0-x64.exe"
               data-download
             >
               Windows版をダウンロード
@@ -165,7 +169,7 @@
               GitHubで見る
             </a>
           </div>
-          <p class="release-meta">Version 0.3.1 ・ 無料 ・ Python不要</p>
+          <p class="release-meta">Version 0.4.0 ・ 無料 ・ Python不要</p>
         </div>
 
         <div class="hero-status" aria-label="Lectavoの処理機能">
@@ -291,7 +295,7 @@
             </svg>
             <span class="howto-number">STEP 3</span>
             <h3>チェックして開始</h3>
-            <p>「処理を開始」で進捗を表示。次のバージョンでは開始前に空き容量・モデル・GPU・音声も自動で確認します。</p>
+            <p>開始前に空き容量・モデル・GPU・音声トラックを自動で確認。長時間待った末の失敗を防ぎます。</p>
           </li>
           <li>
             <svg class="howto-art" viewBox="0 0 240 150" role="img" aria-labelledby="howto-4">
@@ -309,7 +313,7 @@
             </svg>
             <span class="howto-number">STEP 4</span>
             <h3>確認して仕上げる</h3>
-            <p>保存先・PDF・文字起こしをすぐ開けます。履歴から過去の処理も確認できます。</p>
+            <p>抽出スライドを並べ替え・削除・追加してからPDFを確定。保存先や文字起こしもすぐ開けます。</p>
           </li>
         </ol>
       </section>
@@ -459,25 +463,25 @@
       </section>
 
       <section class="next-features reveal" id="next" aria-labelledby="next-title">
-        <p class="section-index">NEXT VERSION</p>
+        <p class="section-index">NEW IN 0.4</p>
         <h2 id="next-title">やり直しの負担を、減らす。</h2>
-        <p class="guide-intro">次のバージョンでは、機能を増やすより先に「長い処理を安心して任せられること」を優先しています。</p>
+        <p class="guide-intro">0.4.0では、機能を増やすより先に「長い処理を安心して任せられること」を優先しました。</p>
         <div class="next-grid">
           <article>
             <span class="next-icon"><svg class="icon" aria-hidden="true"><use href="#i-resume"/></svg></span>
-            <span class="badge">次のバージョンで追加予定</span>
+            <span class="badge">0.4.0 新機能</span>
             <h3>途中保存・処理再開</h3>
             <p>アプリを閉じたりエラーが起きたりしても、完了したスライド解析と文字起こしを再利用。失敗した文字起こしだけを再実行できます。</p>
           </article>
           <article>
             <span class="next-icon"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg></span>
-            <span class="badge">次のバージョンで追加予定</span>
+            <span class="badge">0.4.0 新機能</span>
             <h3>処理前チェック</h3>
             <p>モデルの準備状況、GPU、出力先の空き容量、音声トラックを開始前に確認。問題があれば理由と対処を表示します。</p>
           </article>
           <article>
             <span class="next-icon"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg></span>
-            <span class="badge">次のバージョンで追加予定</span>
+            <span class="badge">0.4.0 新機能</span>
             <h3>スライドの確認・修正</h3>
             <p>抽出画像を一覧で確認し、不要ページの削除、ドラッグでの並べ替え、取り逃した場面の追加をしてからPDFと講義ノートを確定できます。</p>
           </article>
@@ -511,11 +515,19 @@
             src="/screenshots/lectavo-home.png"
             alt="動画を選択できるLectavoのホーム画面"
           />
-          <figcaption>実際のLectavo 0.3.1 Windowsアプリ画面</figcaption>
+          <figcaption>実際のLectavo 0.4.0 Windowsアプリ画面</figcaption>
         </figure>
         <figure class="screen-detail reveal">
           <img src="/screenshots/lectavo-region.png" alt="動画上でスライドを緑の枠、ページ番号を黄の枠で指定するLectavoの範囲選択画面" width="900" height="680" loading="lazy" />
           <figcaption>プレビューの時刻を変えて確認。ドラッグでも数値入力でも範囲を指定できます。</figcaption>
+        </figure>
+        <figure class="screen-detail reveal">
+          <img src="/screenshots/lectavo-review.png" alt="抽出したスライドを一覧で確認し、削除・並べ替え・場面の追加ができるLectavoのスライド確認画面" width="1280" height="760" loading="lazy" />
+          <figcaption>完了後にスライドを一覧で確認。不要なページを削除し、並べ替え、取り逃した場面を追加してPDFを確定します。</figcaption>
+        </figure>
+        <figure class="screen-detail reveal">
+          <img src="/screenshots/lectavo-preflight.png" alt="出力先の空き容量、文字起こしモデル、GPU、音声トラックを確認するLectavoの処理前チェック" width="580" height="600" loading="lazy" />
+          <figcaption>開始前に空き容量・モデル・GPU・音声トラックを確認。注意点があれば理由を表示します。</figcaption>
         </figure>
         <figure class="screen-detail reveal">
           <img src="/screenshots/lectavo-audio.png" alt="MP3とM4Aを追加し、文字起こしと講義ノートを選択したLectavoの画面" width="1280" height="800" loading="lazy" />
@@ -528,7 +540,11 @@
         <h2 id="questions-title">使う前に、知っておきたいこと。</h2>
         <details>
           <summary>どのような手順で使いますか？</summary>
-          <div><ol><li>ホームから動画・音声を選ぶか、ファイルやフォルダをドロップします。</li><li>処理画面で出力内容・保存先・処理品質を選びます。必要ならスライドの検出範囲も指定します。</li><li>「処理を開始」を押します。進捗を確認でき、キャンセルも可能です。</li><li>完了画面から保存先、PDF、文字起こしを開きます。履歴から過去の処理も確認できます。</li></ol></div>
+          <div><ol><li>ホームから動画・音声を選ぶか、ファイルやフォルダをドロップします。</li><li>処理画面で出力内容・保存先・処理品質を選びます。必要ならスライドの検出範囲も指定します。</li><li>「処理を開始」を押します。開始前に空き容量やモデルを自動で確認します。進捗を確認でき、キャンセルも可能です。</li><li>完了画面の「スライドを確認・修正」でページを整えてから、保存先、PDF、文字起こしを開きます。履歴から過去の処理も確認できます。</li></ol></div>
+        </details>
+        <details>
+          <summary>途中でアプリを閉じたり、エラーになったりしたら？</summary>
+          <div><p>完了したスライド解析と文字起こしは自動で保存されています。次回起動時にホームの「続きから再開」を押すか、エラー画面の「続きから再実行」を押すと、残りの処理だけを行います。文字起こしだけ失敗した場合も、スライド解析はやり直しません。保存データは設定画面から削除でき、14日以上使われないデータは自動で削除されます。</p></div>
         </details>
         <details>
           <summary>GPUやAPIキーは必要ですか？</summary>
@@ -570,16 +586,16 @@
           <img src="/app-icon.png" width="88" height="88" alt="Lectavo" />
           <a
             class="button button--large button--light"
-            href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.3.1-x64.exe"
+            href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.4.0-x64.exe"
             data-download
           >
-            Lectavo-setup-0.3.1-x64.exe
+            Lectavo-setup-0.4.0-x64.exe
             <span aria-hidden="true">↓</span>
           </a>
           <a class="text-link text-link--light" href="https://github.com/Kou-256/Lectavo/releases/latest">
             リリースノートとSHA-256
           </a>
-          <small>Version 0.3.1 ・ MIT License ・ 未署名</small>
+          <small>Version 0.4.0 ・ MIT License ・ 未署名</small>
         </div>
       </section>
     </main>
