@@ -150,6 +150,7 @@ try {
     $ReleaseNotes = @"
 Lectavo $Version
 
+- 0.4.3: Frame and one-second stepping in the crop dialog, with exact frame seeking.
 - 0.4.2: Per-video crop timelines for layouts that change mid-video.
 - 0.4.2: Option for slides without page numbers; maximizable crop dialog.
 - 0.4.2: Combined output goes into one folder per run.

@@ -343,6 +343,15 @@ ENGLISH: dict[str, str] = {
     "自動検出": "Automatic",
     "選択中の区間を、範囲を指定しない自動検出に戻します。": "Set the selected segment back to automatic detection.",
     "時間ごとのスライド範囲は画面内の矩形で指定してください。": "Each timed slide crop must be a rectangle inside the frame.",
+    "−1秒": "−1s",
+    "−1コマ": "−1 frame",
+    "+1コマ": "+1 frame",
+    "1秒戻る（Shift+←）": "Back 1 second (Shift+←)",
+    "1コマ戻る（←）": "Back 1 frame (←)",
+    "1コマ進む（→）": "Forward 1 frame (→)",
+    "1秒進む（Shift+→）": "Forward 1 second (Shift+→)",
+    "コマ": "Frame",
+    "←→で1コマ、Shift+←→で1秒移動します。": "Use ←/→ to move one frame and Shift+←/→ to move one second.",
 }
 
 
