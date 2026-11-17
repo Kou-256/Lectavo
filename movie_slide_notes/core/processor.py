@@ -28,6 +28,7 @@ from ..slide_detector import (
     SlideDetector,
     SlideRecord,
     VideoReadError,
+    region_at,
 )
 from ..transcriber import (
     NoAudioTrackError,
@@ -108,6 +109,11 @@ class ProcessingOptions:
     show_progress: bool = False
     output_naming: OutputNamingConfig = field(default_factory=OutputNamingConfig)
     checkpoint_dir: Path | None = None
+    # Per-video crop timelines keyed by the resolved video path:
+    # ((start_seconds, region_or_None), ...). Overrides slide_region.
+    region_schedules: dict[str, tuple] = field(default_factory=dict)
+    # Combined output goes into one folder per run inside output_dir.
+    run_folder: bool = True
 
 
 @dataclass
@@ -147,7 +153,15 @@ class BatchResult:
     output_dir: Path | None = None
     pdf_margin: float = 0.0
     slide_region: tuple[float, float, float, float] | None = None
+    region_schedules: dict[str, tuple] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+
+    def region_for(self, video_path: Path, seconds: float):
+        """Crop region that was used for ``video_path`` at ``seconds``."""
+        schedule = self.region_schedules.get(video_key(video_path))
+        if not schedule:
+            return self.slide_region
+        return region_at(SlideDetectionConfig(region_schedule=tuple(schedule)), seconds)
 
     @property
     def reused_count(self) -> int:
@@ -223,6 +237,9 @@ def process_batch(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     videos = sorted((Path(path) for path in video_paths), key=natural_video_sort_key)
+    if options.output_mode == "combined" and options.run_folder:
+        output_dir = output_dir / run_folder_name(videos, options.output_naming)
+        output_dir.mkdir(parents=True, exist_ok=True)
     stems = [output_stem([path], options.output_naming, combined=False) for path in videos]
     stem_counts = Counter(stem.casefold() for stem in stems)
     results: list[ProcessResult] = []
@@ -295,6 +312,7 @@ def process_batch(
             output_dir=output_dir,
             pdf_margin=options.pdf_margin,
             slide_region=options.slide_config.slide_region,
+            region_schedules=dict(options.region_schedules),
         )
         if combined_mode and not is_cancelled(cancel_event):
             finalize_combined_outputs(
@@ -305,6 +323,7 @@ def process_batch(
                 log_callback,
                 total_units,
                 len(videos),
+                slides_subdir="slides" if options.run_folder else None,
             )
             for result in results:
                 result.output_dir = output_dir
@@ -332,6 +351,7 @@ def finalize_combined_outputs(
     log_callback: LogHandler | None,
     total_units: int,
     video_count: int,
+    slides_subdir: str | None = None,
 ) -> None:
     if not any(result.slides or result.transcription for result in batch.results):
         emit_log(log_callback, "出力できる結果がないため、統合ファイルは生成しませんでした。")
@@ -355,7 +375,7 @@ def finalize_combined_outputs(
         batch.results,
         output_dir,
         options.duplicate_config,
-        slides_subdir="slides" if stem == "all" else f"{stem}_images",
+        slides_subdir=slides_subdir or ("slides" if stem == "all" else f"{stem}_images"),
     )
     batch.combined_slide_count = len(combined_slides)
     batch.combined_duplicate_count = duplicate_count
@@ -595,7 +615,8 @@ def process_video(
         overall_total,
     )
 
-    slide_key = config_fingerprint(options.slide_config, options.duplicate_config)
+    slide_config = slide_config_for(options, video_path)
+    slide_key = config_fingerprint(slide_config, options.duplicate_config)
     final_slides_dir = video_output_dir / "slides"
     final_prefix = "" if options.per_video_dirs else video_stem
     cached_slides = (
@@ -626,7 +647,7 @@ def process_video(
         )
     elif options.operations.extract_slides and not audio_only:
         emit_log(log_callback, f"{video_path.name}: スライド解析を開始しました")
-        detector = SlideDetector(options.slide_config)
+        detector = SlideDetector(slide_config)
         duplicate_filter = DuplicateFilter(options.duplicate_config)
 
         def slide_progress(stage: str, current: int, total: int | None, message: str) -> None:
@@ -829,6 +850,30 @@ def process_video(
     return result
 
 
+def video_key(video_path: Path) -> str:
+    return str(Path(video_path).resolve())
+
+
+def slide_config_for(options: ProcessingOptions, video_path: Path) -> SlideDetectionConfig:
+    """Slide settings for one video, including its own crop timeline if any."""
+    schedule = options.region_schedules.get(video_key(video_path))
+    if not schedule:
+        return options.slide_config
+    return replace(
+        options.slide_config,
+        region_schedule=tuple(
+            (float(start), tuple(region) if region is not None else None)
+            for start, region in sorted(schedule, key=lambda item: float(item[0]))
+        ),
+    )
+
+
+def run_folder_name(videos: Sequence[Path], naming: OutputNamingConfig) -> str:
+    """Folder that holds every output of one combined run."""
+    stem = output_stem(list(videos), naming, combined=True)
+    return "Lectavo_all" if stem == "all" else sanitize_stem(stem)
+
+
 def discover_videos(input_path: Path, recursive: bool = False) -> list[Path]:
     input_path = Path(input_path)
     if input_path.is_file():
@@ -864,6 +909,12 @@ def validate_options(options: ProcessingOptions) -> None:
         options.slide_config.slide_region
     ):
         raise ProcessingConfigurationError("スライド範囲は画面内の矩形で指定してください。")
+    for schedule in options.region_schedules.values():
+        for start, region in schedule:
+            if float(start) < 0 or (region is not None and not valid_region(region)):
+                raise ProcessingConfigurationError(
+                    "時間ごとのスライド範囲は画面内の矩形で指定してください。"
+                )
     if not valid_region(options.slide_config.page_region):
         raise ProcessingConfigurationError("ページ番号の範囲はスライド内の矩形で指定してください。")
     try:

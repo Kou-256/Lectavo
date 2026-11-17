@@ -144,6 +144,21 @@ QListWidget#FileTabs::item:selected {{
     background: {colors.accent_soft};
     border-color: {colors.accent};
 }}
+QListWidget#Timeline {{
+    border: 1px solid {colors.separator};
+    border-radius: {RADIUS.control}px;
+    background: {colors.surface};
+    outline: none;
+    padding: 4px;
+}}
+QListWidget#Timeline::item {{
+    padding: 8px 6px;
+    border-radius: {RADIUS.small}px;
+}}
+QListWidget#Timeline::item:selected {{
+    background: {colors.accent_soft};
+    color: {colors.primary_text};
+}}
 QLabel#FileName {{
     font-weight: 600;
 }}

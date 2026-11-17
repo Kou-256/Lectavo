@@ -509,11 +509,21 @@ class SlideReviewDialog(QDialog):
             start = (current.source_index, current.timestamp + 2)
         else:
             start = (videos[0][0], 0.0)
-        picker = FramePickerDialog(videos, start, self.slide_region, self)
+        region = (
+            self.batch.region_for(self.batch.results[start[0]].video_path, start[1])
+            if self.batch.region_schedules
+            else self.slide_region
+        )
+        picker = FramePickerDialog(videos, start, region, self)
         if picker.exec() != QDialog.Accepted:
             return
         try:
-            frame = capture_frame(picker.video_path, picker.timestamp, self.slide_region)
+            region = (
+                self.batch.region_for(picker.video_path, picker.timestamp)
+                if self.batch.region_schedules
+                else self.slide_region
+            )
+            frame = capture_frame(picker.video_path, picker.timestamp, region)
         except Exception as exc:
             QMessageBox.warning(self, tr("場面を追加"), tr(str(exc)))
             return

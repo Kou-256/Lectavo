@@ -150,6 +150,9 @@ try {
     $ReleaseNotes = @"
 Lectavo $Version
 
+- 0.4.2: Per-video crop timelines for layouts that change mid-video.
+- 0.4.2: Option for slides without page numbers; maximizable crop dialog.
+- 0.4.2: Combined output goes into one folder per run.
 - 0.4.1: Lectavo artwork in the installer instead of the default box-and-disc images.
 - 0.4.1: Sidebar app icon, highlighted active icons, file rows with type icons and colored status.
 - 0.4.1: Thinner separators, aligned settings labels, and chevron disclosure icons.
