@@ -32,10 +32,10 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
-; Lectavo artwork instead of Inno Setup's default box-and-disc images.
-; Regenerate with scripts/generate_installer_images.py.
+; Lectavo artwork instead of Inno Setup's default box-and-disc image.
+; Regenerate with scripts/generate_installer_images.py. The small header
+; image is hidden in [Code] below.
 WizardImageFile=wizard\large-164.bmp,wizard\large-246.bmp,wizard\large-328.bmp,wizard\large-410.bmp
-WizardSmallImageFile=wizard\small-55.bmp,wizard\small-83.bmp,wizard\small-110.bmp,wizard\small-138.bmp
 Compression=lzma2
 SolidCompression=yes
 CloseApplications=yes
@@ -67,3 +67,14 @@ Name: "{autodesktop}\Lectavo"; Filename: "{app}\Lectavo.exe"; WorkingDir: "{app}
 
 [Run]
 Filename: "{app}\Lectavo.exe"; Description: "{cm:LaunchProgram,Lectavo}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+procedure InitializeWizard;
+begin
+  { No picture in the top-right corner of the wizard header. }
+  WizardForm.WizardSmallBitmapImage.Visible := False;
+  WizardForm.PageNameLabel.Width :=
+    WizardForm.MainPanel.ClientWidth - WizardForm.PageNameLabel.Left - ScaleX(16);
+  WizardForm.PageDescriptionLabel.Width :=
+    WizardForm.MainPanel.ClientWidth - WizardForm.PageDescriptionLabel.Left - ScaleX(16);
+end;

@@ -326,6 +326,23 @@ ENGLISH: dict[str, str] = {
     "+5秒": "+5s",
     "すべてのスライドを削除すると、PDFも削除されます。続けますか？": "Removing every slide also removes the PDF. Continue?",
     "変更を破棄して閉じますか？": "Discard your changes and close?",
+    "スライドにページ番号がない": "Slides have no page numbers",
+    "オンにすると、ページ番号の変化ではスライドの切り替わりを判定しません。ページ番号のない資料で、余計な抽出を防げます。": "When on, page-number changes are not used to detect new slides. This avoids extra slides for decks without page numbers.",
+    "ページ番号なし": "No page numbers",
+    "スライドにページ番号がない場合はオンにします。ページ番号の変化では判定しません。": "Turn on when slides have no page numbers. Page-number changes are then ignored.",
+    "時間ごとの範囲": "Crop by time",
+    "この時刻から範囲を変える": "Change crop from this time",
+    "動画の途中で画面の配置が変わる場合に、表示中の時刻から別の範囲を使います。": "Use a different crop from the current time when the screen layout changes mid-video.",
+    "区切りを削除": "Remove change point",
+    "共通の範囲に戻す": "Use shared crop",
+    "このファイル専用の範囲を削除し、全ファイル共通の範囲を使います。": "Remove this file's own crop and use the crop shared by all files.",
+    "このファイル専用の範囲です。": "This crop applies to this file only.",
+    "全ファイル共通の範囲です。途中で配置が変わる場合は区切りを追加します。": "This crop is shared by all files. Add a change point if the layout changes mid-video.",
+    "スライダーで範囲を変えたい時刻に移動してから押してください。": "Move the slider to the time where the crop should change, then press this.",
+    "新しい区間を追加しました。緑の枠をドラッグして、この時刻以降の範囲を指定します。": "Added a new segment. Drag the green box to set the crop from this time on.",
+    "自動検出": "Automatic",
+    "選択中の区間を、範囲を指定しない自動検出に戻します。": "Set the selected segment back to automatic detection.",
+    "時間ごとのスライド範囲は画面内の矩形で指定してください。": "Each timed slide crop must be a rectangle inside the frame.",
 }
 
 

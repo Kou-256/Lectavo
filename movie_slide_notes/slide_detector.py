@@ -35,6 +35,26 @@ class SlideDetectionConfig:
     page_diff_ratio_threshold: float = 0.012
     page_min_component_area: int = 8
     slide_region: tuple[float, float, float, float] | None = None
+    # False when slides have no page number: skip the page-number check.
+    use_page_region: bool = True
+    # Crop changes within one video: ((start_seconds, region_or_None), ...),
+    # sorted by start. Empty means ``slide_region`` applies throughout.
+    region_schedule: tuple[tuple[float, tuple[float, float, float, float] | None], ...] = ()
+
+
+def region_at(
+    config: SlideDetectionConfig, seconds: float
+) -> tuple[float, float, float, float] | None:
+    """Return the crop region in effect at ``seconds``."""
+    if not config.region_schedule:
+        return config.slide_region
+    active = config.region_schedule[0][1]
+    for start, region in config.region_schedule:
+        if start <= seconds + 1e-6:
+            active = region
+        else:
+            break
+    return tuple(active) if active is not None else None
 
 
 @dataclass(frozen=True)
@@ -76,6 +96,7 @@ class SlideDetectionCancelled(RuntimeError):
 class SlideDetector:
     def __init__(self, config: SlideDetectionConfig):
         self.config = config
+        self._active_region = config.slide_region
 
     def extract_slides(
         self,
@@ -98,6 +119,8 @@ class SlideDetector:
         last_reference: np.ndarray | None = None
         last_saved_time = -float("inf")
         sample_time = 0.0
+        active_region = region_at(self.config, 0.0)
+        self._active_region = active_region
 
         progress = self._progress_bar(video_path.name, stats.duration_seconds, show_progress)
         total_frames = self._estimated_sample_count(stats.duration_seconds)
@@ -120,9 +143,43 @@ class SlideDetector:
                     break
 
                 stats.frames_checked += 1
-                if self.config.slide_region is not None:
-                    frame = crop_region(frame, self.config.slide_region)
+                region = region_at(self.config, sample_time)
+                region_changed = region != active_region
+                if region_changed:
+                    active_region = region
+                    self._active_region = region
+                if region is not None:
+                    frame = crop_region(frame, region)
                 prepared = prepare_frame(frame, self.config.compare_width)
+
+                if region_changed and last_reference is not None:
+                    # The crop changed, so the previous reference has another
+                    # size and layout. Start a new baseline at this frame and
+                    # keep it unless it repeats a slide that was already saved.
+                    stats.candidates += 1
+                    duplicate_match = (
+                        duplicate_filter.find_duplicate(frame)
+                        if duplicate_filter is not None
+                        else None
+                    )
+                    if duplicate_match is not None:
+                        stats.duplicates += 1
+                    elif self._save_new_slide(
+                        frame,
+                        output_dir,
+                        video_stem,
+                        sample_time,
+                        slides,
+                        duplicate_filter,
+                        filename_prefix,
+                    ):
+                        stats.saved += 1
+                        last_saved_time = sample_time
+                    last_reference = prepared
+                    self._progress_update(progress)
+                    self._emit_progress(progress_callback, stats.frames_checked, total_frames)
+                    sample_time += self.config.interval
+                    continue
 
                 if last_reference is None:
                     saved = self._save_new_slide(
@@ -201,31 +258,33 @@ class SlideDetector:
             threshold=self.config.diff_threshold,
             min_component_area=self.config.min_component_area,
         )
-        prev_page = crop_page_region(
-            previous, self.config.page_region, self.config.slide_region is None
-        )
-        curr_page = crop_page_region(
-            current, self.config.page_region, self.config.slide_region is None
-        )
-        if curr_page.shape != prev_page.shape:
-            curr_page = cv2.resize(
+        if self.config.use_page_region:
+            auto_crop = self._active_region is None
+            prev_page = crop_page_region(previous, self.config.page_region, auto_crop)
+            curr_page = crop_page_region(current, self.config.page_region, auto_crop)
+            if curr_page.shape != prev_page.shape:
+                curr_page = cv2.resize(
+                    curr_page,
+                    (prev_page.shape[1], prev_page.shape[0]),
+                    interpolation=cv2.INTER_AREA,
+                )
+            page = component_diff_stats(
+                prev_page,
                 curr_page,
-                (prev_page.shape[1], prev_page.shape[0]),
-                interpolation=cv2.INTER_AREA,
+                threshold=self.config.diff_threshold,
+                min_component_area=self.config.page_min_component_area,
             )
-        page = component_diff_stats(
-            prev_page,
-            curr_page,
-            threshold=self.config.diff_threshold,
-            min_component_area=self.config.page_min_component_area,
-        )
+        else:
+            page = DifferenceStats(0.0, 0.0, 0, 0, 0)
         ssim_score = float(structural_similarity(previous, current, data_range=255))
 
         structural_change = (
             overall.diff_ratio >= self.config.diff_ratio_threshold
             and ssim_score <= self.config.ssim_threshold
         )
-        page_change = page.diff_ratio >= self.config.page_diff_ratio_threshold
+        page_change = (
+            self.config.use_page_region and page.diff_ratio >= self.config.page_diff_ratio_threshold
+        )
 
         if structural_change:
             reason = "structure"

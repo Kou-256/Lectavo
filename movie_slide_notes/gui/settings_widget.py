@@ -4,6 +4,7 @@ from dataclasses import replace
 
 from PySide6.QtCore import QSettings, QSize, Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFormLayout,
     QFrame,
     QGridLayout,
@@ -64,6 +65,13 @@ class ProcessingSettingsWidget(QWidget):
         region_row.addWidget(self.region_select_button)
         region_row.addStretch(1)
         root.addLayout(region_row)
+        self.no_page_number_check = QCheckBox("スライドにページ番号がない")
+        self.no_page_number_check.setToolTip(
+            "オンにすると、ページ番号の変化ではスライドの切り替わりを判定しません。"
+            "ページ番号のない資料で、余計な抽出を防げます。"
+        )
+        root.addWidget(self.no_page_number_check)
+        self.region_schedules: dict[str, list] = {}
 
         self.slide_detail_button = disclosure_button("スライド検出の詳細")
         self.slide_detail_panel = QWidget()
@@ -129,6 +137,7 @@ class ProcessingSettingsWidget(QWidget):
         ]:
             region_layout.addWidget(QLabel(label), 0, col)
             region_layout.addWidget(widget, 1, col)
+        self.page_region_box = region_box
         region_box.setToolTip(
             "画面内のスライド領域を自動検出し、その内側でページ番号などがある領域を比率指定します。"
             "初期値は 0.75, 0.80, 0.25, 0.20 です。"
@@ -230,6 +239,13 @@ class ProcessingSettingsWidget(QWidget):
             widget.valueChanged.connect(self._emit_changed)
         for widget in self.findChildren(QComboBox):
             widget.currentIndexChanged.connect(self._emit_changed)
+        self.no_page_number_check.toggled.connect(self._page_number_toggled)
+
+    def _page_number_toggled(self, no_page_number: bool) -> None:
+        self.page_region_box.setEnabled(not no_page_number)
+        self.page_diff_ratio_threshold.setEnabled(not no_page_number)
+        self.page_min_component_area.setEnabled(not no_page_number)
+        self._emit_changed()
 
     def _emit_changed(self) -> None:
         if not self._loading:
@@ -273,7 +289,19 @@ class ProcessingSettingsWidget(QWidget):
             page_diff_ratio_threshold=self.page_diff_ratio_threshold.value(),
             page_min_component_area=self.page_min_component_area.value(),
             slide_region=getattr(self, "slide_region", None),
+            use_page_region=not self.no_page_number_check.isChecked(),
         )
+
+    def region_schedule_map(self) -> dict[str, tuple]:
+        """Per-video crop timelines for ProcessingOptions.region_schedules."""
+        return {
+            key: tuple(
+                (float(start), tuple(region) if region is not None else None)
+                for start, region in schedule
+            )
+            for key, schedule in self.region_schedules.items()
+            if schedule
+        }
 
     def duplicate_config(self) -> DuplicateConfig:
         return DuplicateConfig(
@@ -302,6 +330,8 @@ class ProcessingSettingsWidget(QWidget):
             )
         except (ValueError, TypeError):
             self.slide_region = None
+        self.region_schedules = load_region_schedules(settings.value("region_schedules", "{}"))
+        self.no_page_number_check.setChecked(not settings.value("use_page_region", True, type=bool))
         self._loading = True
         try:
             slide_defaults_migration_key = "slide_detection_defaults_v2_migrated"
@@ -420,6 +450,8 @@ class ProcessingSettingsWidget(QWidget):
         import json
 
         settings.setValue("slide_region", json.dumps(getattr(self, "slide_region", None)))
+        settings.setValue("region_schedules", json.dumps(self.region_schedules, ensure_ascii=False))
+        settings.setValue("use_page_region", not self.no_page_number_check.isChecked())
         settings.setValue("preset", self.preset_combo.currentData())
         config = self.slide_config()
         settings.setValue("interval", config.interval)
@@ -491,6 +523,36 @@ def section_title(text: str) -> QLabel:
 
 
 FORM_LABEL_WIDTH = 150
+
+
+def load_region_schedules(raw) -> dict[str, list]:
+    """Parse stored per-video crop timelines, dropping invalid entries."""
+    import json
+
+    from movie_slide_notes.core.processor import valid_region
+
+    try:
+        data = json.loads(str(raw or "{}"))
+    except ValueError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    result: dict[str, list] = {}
+    for key, schedule in data.items():
+        if not isinstance(schedule, list):
+            continue
+        entries = []
+        for entry in schedule:
+            try:
+                start, region = float(entry[0]), entry[1]
+            except (TypeError, ValueError, IndexError):
+                continue
+            if region is not None and not (isinstance(region, list) and valid_region(region)):
+                continue
+            entries.append([start, list(region) if region is not None else None])
+        if len(entries) >= 1:
+            result[str(key)] = sorted(entries, key=lambda item: item[0])
+    return result
 
 
 def separator() -> QFrame:

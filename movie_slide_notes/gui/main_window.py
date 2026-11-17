@@ -936,6 +936,7 @@ class MainWindow(QMainWindow):
         self.settings.setValue("history", json.dumps(self.history, ensure_ascii=False))
 
     def _settings_widget_changed(self) -> None:
+        self._refresh_region_hint()
         requested_language = str(self.settings_widget.ui_language_combo.currentData())
         language_changed = requested_language != current_ui_language()
         if language_changed:
@@ -1109,6 +1110,7 @@ class MainWindow(QMainWindow):
             show_progress=False,
             output_naming=self._naming_config(moment),
             checkpoint_dir=self._checkpoint_dir(),
+            region_schedules=self.settings_widget.region_schedule_map(),
         )
 
     def _checkpoint_dir(self) -> Path | None:
@@ -1847,11 +1849,21 @@ class MainWindow(QMainWindow):
 
     def _refresh_region_hint(self):
         region = getattr(self.settings_widget, "slide_region", None)
-        self.region_hint.setText(
+        parts = [
             tr("検出範囲: 自動")
             if region is None
             else tr("検出範囲: 手動") + "  " + ", ".join(f"{value:.3f}" for value in region)
-        )
+        ]
+        names = [
+            Path(key).name
+            for key in self.settings_widget.region_schedules
+            if any(Path(key) == path for path in self.videos) or not self.videos
+        ]
+        if names:
+            parts.append(tr("時間ごとの範囲") + ": " + ", ".join(names))
+        if self.settings_widget.no_page_number_check.isChecked():
+            parts.append(tr("ページ番号なし"))
+        self.region_hint.setText(" ・ ".join(parts))
 
     def edit_region(self):
         videos = [path for path in self.videos if path.suffix.lower() in VIDEO_EXTENSIONS]
@@ -1868,9 +1880,18 @@ class MainWindow(QMainWindow):
         from .region_selector import RegionSelector
 
         config = self.settings_widget.slide_config()
-        dialog = RegionSelector(videos, config.slide_region, config.page_region, self)
+        dialog = RegionSelector(
+            videos,
+            config.slide_region,
+            config.page_region,
+            self,
+            schedules=self.settings_widget.region_schedules,
+            use_page_region=config.use_page_region,
+        )
         if dialog.exec() == QDialog.Accepted:
-            self.settings_widget.slide_region = None if dialog.auto_detect else dialog.canvas.slide
+            self.settings_widget.slide_region = dialog.common_region
+            self.settings_widget.region_schedules = dialog.result_schedules()
+            self.settings_widget.no_page_number_check.setChecked(not dialog.use_page_region)
             for field, value in zip(
                 (
                     self.settings_widget.region_x,
@@ -2012,6 +2033,8 @@ class MainWindow(QMainWindow):
 
     def open_output_folder(self) -> None:
         path = Path(self.output_path.text())
+        if self.last_batch is not None and self.last_batch.output_mode == "combined":
+            path = self.last_batch.output_dir or path
         if path.exists():
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
