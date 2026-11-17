@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QRectF, Qt, QThread, QTimer, Signal
-from PySide6.QtGui import QColor, QImage, QPainter, QPen
+from PySide6.QtGui import QColor, QImage, QKeySequence, QPainter, QPen, QShortcut
 from PySide6.QtWidgets import (
     QAbstractSpinBox,
     QCheckBox,
@@ -28,12 +28,14 @@ from .icons import icon
 
 
 class FrameLoader(QThread):
-    loaded = Signal(QImage, float)
+    """Load the frame at ``seconds``. Emits (image, duration, fps, frame time)."""
+
+    loaded = Signal(QImage, float, float, float)
     failed = Signal(str)
 
-    def __init__(self, path: Path, ratio: float, parent=None):
+    def __init__(self, path: Path, seconds: float, parent=None):
         super().__init__(parent)
-        self.path, self.ratio = path, ratio
+        self.path, self.seconds = path, max(0.0, float(seconds))
 
     def run(self):
         import cv2
@@ -42,9 +44,16 @@ class FrameLoader(QThread):
         try:
             if not cap.isOpened():
                 raise ValueError(tr("動画を読み込めませんでした。"))
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            duration = cap.get(cv2.CAP_PROP_FRAME_COUNT) / fps if fps > 0 else 0
-            cap.set(cv2.CAP_PROP_POS_MSEC, max(0, duration - 0.1) * self.ratio * 1000)
+            fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+            duration = frame_count / fps if fps > 0 else 0.0
+            if fps > 0 and frame_count > 0:
+                index = min(frame_count - 1, max(0, round(self.seconds * fps)))
+                cap.set(cv2.CAP_PROP_POS_FRAMES, index)
+                actual = index / fps
+            else:
+                cap.set(cv2.CAP_PROP_POS_MSEC, self.seconds * 1000)
+                actual = self.seconds
             ok, frame = cap.read()
             if not ok:
                 raise ValueError(tr("動画フレームを読み込めませんでした。"))
@@ -52,7 +61,7 @@ class FrameLoader(QThread):
             image = QImage(
                 rgb.data, rgb.shape[1], rgb.shape[0], rgb.strides[0], QImage.Format_RGB888
             ).copy()
-            self.loaded.emit(image, duration)
+            self.loaded.emit(image, duration, fps, actual)
         except Exception as exc:
             self.failed.emit(str(exc))
         finally:
@@ -150,6 +159,16 @@ def format_time(seconds: float) -> str:
     return f"{minutes:02d}:{secs:02d}"
 
 
+def format_precise(seconds: float) -> str:
+    """mm:ss.ss (or h:mm:ss.ss) for frame-level positions."""
+    seconds = max(0.0, seconds)
+    hours, remainder = divmod(seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours >= 1:
+        return f"{int(hours)}:{int(minutes):02d}:{secs:05.2f}"
+    return f"{int(minutes):02d}:{secs:05.2f}"
+
+
 def video_key(path: Path) -> str:
     return str(Path(path).resolve())
 
@@ -190,6 +209,8 @@ class RegionSelector(QDialog):
         }
         self.use_page_region = use_page_region
         self.duration = 0.0
+        self.fps = 0.0
+        self.position = 0.0
         self.segment_index = 0
 
         layout = QVBoxLayout(self)
@@ -240,12 +261,29 @@ class RegionSelector(QDialog):
         layout.addLayout(body, 1)
 
         seek_row = QHBoxLayout()
+        seek_row.setSpacing(6)
         self.seek = QSlider(Qt.Horizontal)
-        self.seek.setRange(0, 1000)
+        self.seek.setRange(0, 0)
         self.seek.setAccessibleName(tr("プレビューの時刻"))
-        self.time_label = QLabel("00:00 / 00:00")
-        self.time_label.setMinimumWidth(120)
+        self.step_buttons = {}
+        for key, text, tip in (
+            ("back_second", "−1秒", "1秒戻る（Shift+←）"),
+            ("back_frame", "−1コマ", "1コマ戻る（←）"),
+            ("next_frame", "+1コマ", "1コマ進む（→）"),
+            ("next_second", "+1秒", "1秒進む（Shift+→）"),
+        ):
+            button = QPushButton(tr(text))
+            button.setToolTip(tr(tip))
+            button.setAccessibleName(tr(tip))
+            button.setFocusPolicy(Qt.NoFocus)
+            self.step_buttons[key] = button
+        seek_row.addWidget(self.step_buttons["back_second"])
+        seek_row.addWidget(self.step_buttons["back_frame"])
         seek_row.addWidget(self.seek, 1)
+        seek_row.addWidget(self.step_buttons["next_frame"])
+        seek_row.addWidget(self.step_buttons["next_second"])
+        self.time_label = QLabel("00:00.00 / 00:00.00")
+        self.time_label.setMinimumWidth(190)
         seek_row.addWidget(self.time_label)
         layout.addLayout(seek_row)
         self.status = QLabel(tr("動画を読み込んでいます…"))
@@ -304,8 +342,19 @@ class RegionSelector(QDialog):
         self.seek_timer = QTimer(self)
         self.seek_timer.setSingleShot(True)
         self.seek_timer.setInterval(200)
-        self.seek_timer.timeout.connect(lambda: self.load_frame(self.seek.value() / 1000))
+        self.seek_timer.timeout.connect(lambda: self.load_frame(self.position))
         self.seek.valueChanged.connect(self._seek_moved)
+        self.step_buttons["back_second"].clicked.connect(lambda: self.step_seconds(-1))
+        self.step_buttons["back_frame"].clicked.connect(lambda: self.step_frames(-1))
+        self.step_buttons["next_frame"].clicked.connect(lambda: self.step_frames(1))
+        self.step_buttons["next_second"].clicked.connect(lambda: self.step_seconds(1))
+        for keys, action in (
+            ("Left", lambda: self.step_frames(-1)),
+            ("Right", lambda: self.step_frames(1)),
+            ("Shift+Left", lambda: self.step_seconds(-1)),
+            ("Shift+Right", lambda: self.step_seconds(1)),
+        ):
+            QShortcut(QKeySequence(keys), self, activated=action)
         self.source.currentIndexChanged.connect(self._source_changed)
         self._page_toggled(self.no_page_check.isChecked())
         self._sync_segment()
@@ -326,7 +375,42 @@ class RegionSelector(QDialog):
         return [[0.0, self.common_region]]
 
     def current_time(self) -> float:
-        return self.duration * self.seek.value() / 1000
+        return self.position
+
+    def frame_index(self) -> int:
+        return round(self.position * self.fps) if self.fps > 0 else 0
+
+    def set_position(self, seconds: float) -> None:
+        """Move the preview to ``seconds`` and load that frame right away."""
+        upper = self.duration if self.duration > 0 else max(seconds, 0.0)
+        if self.fps > 0 and self.duration > 0:
+            upper = max(0.0, self.duration - 1 / self.fps)
+        self.position = min(max(0.0, seconds), upper)
+        self.seek.blockSignals(True)
+        self.seek.setValue(round(self.position * 1000))
+        self.seek.blockSignals(False)
+        self._update_time_label()
+        self._sync_segment()
+        self.seek_timer.stop()
+        self.load_frame(self.position)
+
+    def step_frames(self, count: int) -> None:
+        if self.fps > 0:
+            self.set_position((self.frame_index() + count) / self.fps)
+        else:
+            self.set_position(self.position + count * 0.1)
+
+    def step_seconds(self, seconds: float) -> None:
+        if self.fps > 0:
+            self.set_position(round((self.position + seconds) * self.fps) / self.fps)
+        else:
+            self.set_position(self.position + seconds)
+
+    def _update_time_label(self) -> None:
+        text = f"{format_precise(self.position)} / {format_precise(self.duration)}"
+        if self.fps > 0:
+            text += "  " + tr("コマ") + f" {self.frame_index() + 1}"
+        self.time_label.setText(text)
 
     def _segment_index_at(self, seconds: float) -> int:
         index = 0
@@ -363,7 +447,7 @@ class RegionSelector(QDialog):
             text = (
                 tr("自動検出") if region is None else ", ".join(f"{value:.2f}" for value in region)
             )
-            self.timeline.addItem(QListWidgetItem(f"{format_time(start)}〜   {text}"))
+            self.timeline.addItem(QListWidgetItem(f"{format_precise(start)}〜   {text}"))
         self.timeline.setCurrentRow(self.segment_index)
         self.timeline.blockSignals(False)
         own = self.has_own_schedule()
@@ -376,7 +460,7 @@ class RegionSelector(QDialog):
         self.common_button.setEnabled(own)
 
     def split_here(self) -> None:
-        seconds = round(self.current_time(), 1)
+        seconds = round(self.current_time(), 3)
         if seconds < 0.5:
             QMessageBox.information(
                 self,
@@ -416,24 +500,22 @@ class RegionSelector(QDialog):
     def _timeline_clicked(self, item) -> None:
         row = self.timeline.row(item)
         start = self.segments()[row][0]
-        if self.duration > 0:
-            self.seek.setValue(int(min(1000, (start + 0.2) / self.duration * 1000)))
         self.segment_index = row
-        self._sync_segment()
+        self.set_position(start)
 
     # UI events ----------------------------------------------------------------------
 
     def _seek_moved(self) -> None:
-        self.time_label.setText(
-            f"{format_time(self.current_time())} / {format_time(self.duration)}"
-        )
+        self.position = self.seek.value() / 1000
+        self._update_time_label()
         self._sync_segment()
         self.seek_timer.start()
 
     def _source_changed(self) -> None:
         self.duration = 0.0
+        self.fps = 0.0
         self._sync_segment()
-        self.load_frame(self.seek.value() / 1000)
+        self.load_frame(self.position)
 
     def _page_toggled(self, no_page: bool) -> None:
         self.use_page_region = not no_page
@@ -483,25 +565,35 @@ class RegionSelector(QDialog):
         self.canvas.update()
         self.buttons.button(QDialogButtonBox.Ok).setEnabled(not self.canvas.image.isNull())
 
-    def load_frame(self, ratio):
+    def load_frame(self, seconds):
         if self.loader is not None and self.loader.isRunning():
-            self.pending_ratio = ratio
+            self.pending_ratio = seconds
             return
         self.buttons.button(QDialogButtonBox.Ok).setEnabled(False)
-        self.status.setText(tr("動画を読み込んでいます…"))
-        self.loader = FrameLoader(self.source.currentData(), ratio, self)
-        self.loader.loaded.connect(lambda image, duration: self._loaded(image, duration, ratio))
+        self.loader = FrameLoader(self.source.currentData(), seconds, self)
+        self.loader.loaded.connect(self._loaded)
         self.loader.failed.connect(self.status.setText)
         self.loader.finished.connect(self._loader_finished)
         self.loader.start()
 
-    def _loaded(self, image, duration, ratio):
+    def _loaded(self, image, duration, fps, actual):
         self.canvas.image = image
         self.duration = float(duration)
-        self.time_label.setText(f"{format_time(self.current_time())} / {format_time(duration)}")
+        self.fps = float(fps)
+        self.seek.blockSignals(True)
+        self.seek.setRange(0, max(0, round(self.duration * 1000)))
+        self.seek.setSingleStep(max(1, round(1000 / self.fps)) if self.fps > 0 else 100)
+        self.seek.setPageStep(1000)
+        if self.pending_ratio is None:
+            self.position = float(actual)
+            self.seek.setValue(round(self.position * 1000))
+        self.seek.blockSignals(False)
+        self._update_time_label()
         self._sync_segment()
         self.status.setText(
             tr("ドラッグまたは数値で指定できます。ページ番号の位置は緑の範囲の内側です。")
+            + "  "
+            + tr("←→で1コマ、Shift+←→で1秒移動します。")
         )
         self.buttons.button(QDialogButtonBox.Ok).setEnabled(True)
 
@@ -509,8 +601,8 @@ class RegionSelector(QDialog):
         if self.closing:
             super().done(self._pending_result)
         elif self.pending_ratio is not None:
-            ratio, self.pending_ratio = self.pending_ratio, None
-            self.load_frame(ratio)
+            seconds, self.pending_ratio = self.pending_ratio, None
+            self.load_frame(seconds)
 
     def done(self, result):
         self.seek_timer.stop()

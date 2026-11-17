@@ -175,7 +175,8 @@ class RegionSelectorTimelineTests(unittest.TestCase):
             self.assertFalse(dialog.has_own_schedule())
 
             dialog.duration = 6.0
-            dialog.seek.setValue(600)  # 3.6 s
+            dialog.seek.setRange(0, 6000)
+            dialog.seek.setValue(3600)  # milliseconds
             dialog.split_here()
             self.assertTrue(dialog.has_own_schedule())
             self.assertEqual(dialog.timeline.count(), 2)
@@ -185,7 +186,7 @@ class RegionSelectorTimelineTests(unittest.TestCase):
             self.assertEqual(schedule, [[0.0, list(LEFT)], [3.6, list(RIGHT)]])
             self.assertEqual(dialog.common_region, LEFT)
 
-            dialog.seek.setValue(100)
+            dialog.seek.setValue(1000)
             self.assertEqual(dialog.segment_index, 0)
             dialog.no_page_check.setChecked(True)
             self.assertFalse(dialog.use_page_region)
@@ -193,6 +194,54 @@ class RegionSelectorTimelineTests(unittest.TestCase):
 
             dialog.use_common_region()
             self.assertEqual(dialog.result_schedules(), {})
+            dialog.close()
+
+
+class FrameSteppingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_loader_seeks_to_exact_frames(self) -> None:
+        from movie_slide_notes.gui.region_selector import FrameLoader
+
+        with tempfile.TemporaryDirectory() as directory:
+            # 2 fps, 3 s per slide: frame 5 is the last "Intro" frame, frame 6 the first "Goal".
+            video = write_video(
+                Path(directory) / "frames.avi",
+                [slide_frame("Intro", "left", 30), slide_frame("Goal", "left", 200)],
+            )
+            results = []
+            for seconds in (2.5, 3.0):
+                loader = FrameLoader(video, seconds)
+                loader.loaded.connect(lambda *args: results.append(args))
+                loader.run()
+            (first, duration, fps, actual_a), (second, _, _, actual_b) = results
+            self.assertEqual((duration, fps), (6.0, 2.0))
+            self.assertEqual((actual_a, actual_b), (2.5, 3.0))
+            self.assertNotEqual(first, second)
+
+    def test_frame_and_second_steps(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            video = write_video(Path(directory) / "s.avi", [slide_frame("Intro", "left", 30)])
+            with patch.object(RegionSelector, "load_frame") as load:
+                dialog = RegionSelector([video], LEFT, (0.75, 0.8, 0.25, 0.2))
+                dialog.duration, dialog.fps = 6.0, 10.0
+                dialog.seek.setRange(0, 6000)
+                dialog.set_position(3.0)
+                dialog.step_frames(1)
+                self.assertAlmostEqual(dialog.position, 3.1)
+                self.assertEqual(dialog.seek.value(), 3100)
+                self.assertIn("コマ 32", dialog.time_label.text())
+                dialog.step_frames(-2)
+                self.assertAlmostEqual(dialog.position, 2.9)
+                dialog.step_seconds(1)
+                self.assertAlmostEqual(dialog.position, 3.9)
+                dialog.step_seconds(-10)
+                self.assertEqual(dialog.position, 0.0)
+                dialog.step_seconds(100)
+                self.assertAlmostEqual(dialog.position, 5.9)  # last frame
+                self.assertAlmostEqual(load.call_args.args[0], 5.9)
             dialog.close()
 
 
