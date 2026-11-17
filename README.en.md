@@ -8,13 +8,21 @@
 
 <p align="center"><a href="https://lectavo.vercel.app"><strong>Website</strong></a> ・ <a href="https://github.com/Kou-256/Lectavo/releases/latest"><strong>Download latest release</strong></a> ・ <a href="README.md">日本語</a> ・ English</p>
 
+## New in 0.4.2
+
+- **Crop by time**: when the screen layout changes mid-video, press "Change crop from this time" in the crop dialog to use a different crop from that point on. Timelines are saved per video; other videos use the shared crop.
+- **No page numbers**: turn this on in Settings or the crop dialog for slides without page numbers, so page-number changes don't count as new slides.
+- The crop dialog can be maximized.
+- Combined output goes into one folder per run, named after the output name, with the PDF, TXT, SRT, MD, and slide images inside.
+- The installer no longer shows an image in the top-right corner.
+- Download `Lectavo-setup-0.4.2-x64.exe`.
+
 ## New in 0.4.1
 
 - The installer shows Lectavo artwork instead of Inno Setup's default box-and-disc images.
 - The sidebar shows the app icon, and the active item's icon is highlighted.
 - Input files on the Process screen are fixed-height rows with a type icon, an elided name, and a colored status.
 - Thinner separators, aligned settings labels, and chevron icons for expandable sections.
-- Download `Lectavo-setup-0.4.1-x64.exe`.
 
 ## New in 0.4.0
 
@@ -74,7 +82,7 @@ Lectavo is a Windows desktop application that turns lecture and presentation vid
 
 ## Download
 
-Download `Lectavo-setup-0.4.1-x64.exe` from the [latest GitHub Release](https://github.com/Kou-256/Lectavo/releases/latest). The installed application does not require Python, pip, Git, a virtual environment, or a separate `ffmpeg.exe`.
+Download `Lectavo-setup-0.4.2-x64.exe` from the [latest GitHub Release](https://github.com/Kou-256/Lectavo/releases/latest). The installed application does not require Python, pip, Git, a virtual environment, or a separate `ffmpeg.exe`.
 
 - Windows 10 / 11 x64
 - Japanese UI by default
@@ -83,11 +91,11 @@ Download `Lectavo-setup-0.4.1-x64.exe` from the [latest GitHub Release](https://
 - GPU optional; CPU-only operation is supported
 - Desktop shortcut enabled by default
 
-The current `0.4.1` binary is unsigned, so Windows SmartScreen may display a warning. Compare the download with the SHA-256 value attached to the release.
+The current `0.4.2` binary is unsigned, so Windows SmartScreen may display a warning. Compare the download with the SHA-256 value attached to the release.
 
 ## Basic use
 
-1. Run `Lectavo-setup-0.4.1-x64.exe`.
+1. Run `Lectavo-setup-0.4.2-x64.exe`.
 2. Launch Lectavo from the desktop or Start Menu.
 3. Add videos with the file button, folder link, or drag and drop.
 4. Choose combined output or per-video output.
