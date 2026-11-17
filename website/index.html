@@ -66,17 +66,18 @@
             "@id": "https://lectavo.vercel.app/#application",
             "name": "Lectavo",
             "url": "https://lectavo.vercel.app/",
-            "downloadUrl": "https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.3.1-x64.exe",
+            "downloadUrl": "https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.4.1-x64.exe",
             "image": "https://lectavo.vercel.app/lectavo-og-v2.png",
             "screenshot": [
               "https://lectavo.vercel.app/screenshots/lectavo-home.png",
-              "https://lectavo.vercel.app/screenshots/lectavo-ready.png"
+              "https://lectavo.vercel.app/screenshots/lectavo-ready.png",
+              "https://lectavo.vercel.app/screenshots/lectavo-review.png"
             ],
             "description": "講義動画から重複のないスライドPDF、タイムスタンプ付き文字起こし、講義ノートを自動生成します。",
             "applicationCategory": "EducationalApplication",
             "applicationSubCategory": "Lecture note generator",
             "operatingSystem": "Windows 10, Windows 11",
-            "softwareVersion": "0.3.1",
+            "softwareVersion": "0.4.1",
             "softwareRequirements": "Windows x64",
             "featureList": [
               "スライド変化検出",
@@ -87,7 +88,10 @@
               "講義ノートMarkdown生成",
               "MP3・M4A・WAV文字起こし",
               "プレビュー上のスライド範囲指定",
-              "ユーザー同意後のアプリ更新"
+              "ユーザー同意後のアプリ更新",
+              "途中保存と処理再開",
+              "処理前チェック",
+              "スライドの確認・修正"
             ],
             "isAccessibleForFree": true,
             "offers": {
@@ -107,17 +111,31 @@
     <title>Lectavo | 講義動画からスライドPDF・文字起こしを自動生成</title>
   </head>
   <body>
+    <svg class="icon-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2.5"/><path d="m17 10 4-2.5v9L17 14"/></symbol>
+      <symbol id="i-detect" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="m8 11 2.5 2.5L16 8"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+      <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 5v14M15 9v6M19 7v10M21 12h0"/></symbol>
+      <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></symbol>
+      <symbol id="i-scissors" viewBox="0 0 24 24"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3"/><rect x="8" y="8" width="8" height="8" rx="1"/></symbol>
+      <symbol id="i-merge" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M10 6.5h4a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-4"/><path d="M17 12h4"/></symbol>
+      <symbol id="i-notes" viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="6" rx="1.2"/><path d="M14 5h7M14 9h5M3 14h18M3 18h12"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></symbol>
+      <symbol id="i-resume" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="m10 9 5 3-5 3z"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="6" rx="1.5"/><rect x="13" y="4" width="8" height="6" rx="1.5"/><rect x="3" y="14" width="8" height="6" rx="1.5"/><path d="M17 14v6M14 17h6"/></symbol>
+    </svg>
     <header class="site-header">
       <a class="brand" href="#top" aria-label="Lectavo ホーム">
         <img src="/app-icon.png" alt="" width="38" height="38" />
         <span>Lectavo</span>
       </a>
       <nav aria-label="メインナビゲーション">
+        <a href="#howto">使い方</a>
         <a href="#capabilities">できること</a>
-        <a href="#cuda">CUDA</a>
-        <a href="#screens">画面</a>
+        <a href="#next">新機能</a>
         <a href="#questions">よくある質問</a>
-        <a class="button button--small" href="#download">ダウンロード</a>
+        <a class="button button--small" href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.4.1-x64.exe" data-download>ダウンロード</a>
       </nav>
     </header>
 
@@ -134,13 +152,12 @@
           <h1 id="hero-title">Lectavo</h1>
           <p class="hero-lead">動画を、<br />PDFと文字起こしへ。</p>
           <p class="hero-description">
-            スライドの切り替わりを見つけ、重複を除き、faster-whisperで発話を整理。
-            複数の動画も一つの講義資料に。MP3・M4A・WAVの録音も文字起こしできます。
+            スライドを自動で抜き出してPDFに。発話は時刻付きの文字起こしと講義ノートに。
           </p>
           <div class="hero-actions">
             <a
               class="button button--large"
-              href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.3.1-x64.exe"
+              href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.4.1-x64.exe"
               data-download
             >
               Windows版をダウンロード
@@ -150,7 +167,7 @@
               GitHubで見る
             </a>
           </div>
-          <p class="release-meta">Version 0.3.1 ・ 無料 ・ Python不要</p>
+          <p class="release-meta">Version 0.4.1 ・ 無料 ・ Python不要</p>
         </div>
 
         <div class="hero-status" aria-label="Lectavoの処理機能">
@@ -172,80 +189,165 @@
         </div>
       </section>
 
-      <section class="statement reveal" id="workflow" aria-labelledby="statement-title">
-        <p class="section-index">01 / WORKFLOW</p>
-        <div>
-          <h2 id="statement-title">
-            <span class="heading-line">動画を選ぶ。</span>
-            <span class="heading-line">資料ができる。</span>
-          </h2>
-          <p>
-            カーソルやレーザーポインターの移動は無視し、意味のあるスライド変化だけを検出します。
-            PDF、タイムスタンプ付き文字起こし、スライド別Markdownまで一つの流れで生成します。
-          </p>
+      <section class="howto reveal" id="howto" aria-labelledby="howto-title">
+        <p class="section-index">HOW TO USE</p>
+        <h2 id="howto-title">はじめてでも、4ステップ。</h2>
+        <p class="guide-intro">実際のアプリ画面です。番号の場所を操作します。</p>
+        <div class="howto-rows">
+          <article class="howto-row">
+            <div class="howto-copy">
+              <span class="howto-number">STEP 1</span>
+              <h3>動画・音声を追加する</h3>
+              <p>ファイルをドロップするか「動画・音声を選択」を押します。フォルダごと追加もできます。</p>
+              <ul class="howto-tips"><li>動画 MP4・MOV・MKV など／音声 MP3・M4A・WAV</li></ul>
+            </div>
+            <div class="howto-media">
+            <div class="app-shot ">
+              <div class="window-chrome" aria-hidden="true"><i></i><i></i><i></i><span>Lectavo</span></div>
+              <div class="shot-frame">
+                <img src="/screenshots/howto-1-add.png" alt="Lectavoのホーム画面。中央に動画・音声をドロップする枠と「動画・音声を選択」ボタンがある" width="1280" height="800" loading="lazy" decoding="async" />
+                <span class="callout callout--right" style="--x:64%;--y:38.4%"><b>1</b><span>ここにドロップ／クリック</span></span>
+              </div>
+            </div>
+            </div>
+          </article>
+          <article class="howto-row">
+            <div class="howto-copy">
+              <span class="howto-number">STEP 2</span>
+              <h3>出力方法と内容を選ぶ</h3>
+              <p>複数の動画を1つの資料にするなら「まとめて出力」。必要な出力にチェックを入れます。</p>
+              <ul class="howto-tips"><li>スライドPDF・文字起こし＋講義ノート・画像</li></ul>
+            </div>
+            <div class="howto-media">
+            <div class="app-shot ">
+              <div class="window-chrome" aria-hidden="true"><i></i><i></i><i></i><span>Lectavo</span></div>
+              <div class="shot-frame">
+                <img src="/screenshots/howto-2-ready.png" alt="処理画面。左に講義サンプル-01と02、右に出力方法・出力内容・保存先の設定が並ぶ" width="1280" height="860" loading="lazy" decoding="async" />
+                <span class="callout callout--right" style="--x:29.6%;--y:8.6%"><b>1</b><span>追加したファイル</span></span><span class="callout callout--left" style="--x:95.5%;--y:44.4%"><b>2</b><span>出力方法</span></span><span class="callout callout--right" style="--x:82.5%;--y:60.2%"><b>3</b><span>出力内容</span></span>
+              </div>
+            </div>
+            </div>
+          </article>
+          <article class="howto-row">
+            <div class="howto-copy">
+              <span class="howto-number">STEP 3</span>
+              <h3>「処理を開始」— 開始前に自動チェック</h3>
+              <p>空き容量・モデル・GPU・音声トラックを開始前に確認します。</p>
+              <ul class="howto-tips"><li>途中で止まっても「続きから再開」できます</li></ul>
+            </div>
+            <div class="howto-media">
+            <div class="shot-stack">
+            <div class="app-shot ">
+              <div class="window-chrome" aria-hidden="true"><i></i><i></i><i></i><span>Lectavo</span></div>
+              <div class="shot-frame">
+                <img src="/screenshots/howto-3-running.png" alt="処理中の画面。2本目の動画を文字起こし中で、進捗バーが78%" width="1280" height="450" loading="lazy" decoding="async" />
+                <span class="callout callout--right" style="--x:70%;--y:22%"><b>1</b><span>進み具合</span></span>
+              </div>
+            </div>
+            <div class="app-shot app-shot--float">
+              <div class="window-chrome" aria-hidden="true"><i></i><i></i><i></i><span>Lectavo</span></div>
+              <div class="shot-frame">
+                <img src="/screenshots/lectavo-preflight.png" alt="処理前チェックのダイアログ。モデルの初回ダウンロードと音声トラックなしの注意、空き容量OKなどを表示" width="580" height="600" loading="lazy" decoding="async" />
+                
+              </div>
+            </div>
+            </div>
+            </div>
+          </article>
+          <article class="howto-row">
+            <div class="howto-copy">
+              <span class="howto-number">STEP 4</span>
+              <h3>スライドを確認して仕上げる</h3>
+              <p>「スライドを確認・修正」で削除・並べ替え・追加をして、PDFを確定します。</p>
+              <ul class="howto-tips"><li>削除した画像はごみ箱へ移動します</li></ul>
+            </div>
+            <div class="howto-media">
+            <div class="shot-stack">
+            <div class="app-shot ">
+              <div class="window-chrome" aria-hidden="true"><i></i><i></i><i></i><span>Lectavo</span></div>
+              <div class="shot-frame">
+                <img src="/screenshots/howto-4-complete.png" alt="完了画面。スライドPDF1件、抽出スライド5枚、動画間の重複除去1枚と表示され、「スライドを確認・修正」ボタンがある" width="1280" height="390" loading="lazy" decoding="async" />
+                <span class="callout callout--left" style="--x:84.2%;--y:67.4%"><b>1</b><span>ここから確認</span></span>
+              </div>
+            </div>
+            <div class="app-shot app-shot--float app-shot--wide">
+              <div class="window-chrome" aria-hidden="true"><i></i><i></i><i></i><span>Lectavo</span></div>
+              <div class="shot-frame">
+                <img src="/screenshots/lectavo-review.png" alt="スライドの確認・修正画面。5枚のスライドがサムネイルで並び、右に選択中のスライドの拡大と削除・追加ボタンがある" width="1280" height="760" loading="lazy" decoding="async" />
+                
+              </div>
+            </div>
+            </div>
+            </div>
+          </article>
         </div>
-      </section>
-
-      <section class="flow reveal" aria-label="Lectavoの処理フロー">
-        <div class="flow-track" aria-hidden="true"><span></span></div>
-        <div class="flow-node is-active" data-flow-step="0">
-          <span>01</span>
-          <strong>動画</strong>
-          <small>MP4 / MOV / MKV</small>
-        </div>
-        <div class="flow-node" data-flow-step="1">
-          <span>02</span>
-          <strong>スライド検出</strong>
-          <small>SSIM + 差分解析</small>
-        </div>
-        <div class="flow-node" data-flow-step="2">
-          <span>03</span>
-          <strong>重複除去</strong>
-          <small>pHash + SSIM</small>
-        </div>
-        <div class="flow-node" data-flow-step="3">
-          <span>04</span>
-          <strong>文字起こし</strong>
-          <small>faster-whisper</small>
-        </div>
-        <div class="flow-node" data-flow-step="4">
-          <span>05</span>
-          <strong>資料完成</strong>
-          <small>PDF / TXT / SRT / MD</small>
-        </div>
-        <p class="flow-status" aria-live="polite">
-          <span>処理中</span><strong data-flow-status>動画を読み込んでいます</strong>
-        </p>
       </section>
 
       <section class="guide reveal" id="capabilities" aria-labelledby="capabilities-title">
         <p class="section-index">WHAT YOU CAN DO</p>
         <h2 id="capabilities-title">動画と録音を、<br />読み返せる資料に。</h2>
-        <p class="guide-intro">講義の復習、研修の振り返り、プレゼン資料の整理に。手元のファイルを選ぶだけで、画像・文字・字幕として保存できます。</p>
+        <p class="guide-intro">下の画像はすべて、サンプル動画を実際に処理した結果です。</p>
         <div class="guide-grid">
           <article>
+            <figure class="guide-media guide-media--pages">
+              <div class="pdf-pages"><img src="/samples/slide-1.png" alt="抽出されたスライド1" width="640" height="360" loading="lazy" /><img src="/samples/slide-2.png" alt="抽出されたスライド2" width="640" height="360" loading="lazy" /><img src="/samples/slide-3.png" alt="抽出されたスライド3" width="640" height="360" loading="lazy" /><img src="/samples/slide-4.png" alt="抽出されたスライド4" width="640" height="360" loading="lazy" /><img src="/samples/slide-5.png" alt="抽出されたスライド5" width="640" height="360" loading="lazy" /></div>
+              <figcaption>実際の抽出結果：講義動画2本から5枚を抽出（重複1枚を除去）</figcaption>
+            </figure>
             <h3>長い講義から、スライドだけを取り出す</h3>
-            <p>動画を一定間隔で確認し、スライドが大きく変わった場面を画像に保存。レーザーポインターやマウスの小さな動きはできるだけ除外し、抽出した画像を1ページ1枚のPDFにします。見返したいページを、動画を再生し直さずに探せます。</p>
+            <p>スライドが切り替わった場面だけを画像にし、1ページ1枚のPDFにします。マウスやポインターの小さな動きは無視します。</p>
           </article>
           <article>
+            <figure class="guide-media">
+              <img src="/screenshots/detail-merge.png" alt="左のファイル一覧に講義サンプル-01と02が並び、出力方法で「まとめて出力（1フォルダ）」を選んだ画面" width="760" height="445" loading="lazy" />
+            </figure>
             <h3>分割された動画を、1つの資料にまとめる</h3>
-            <p>複数ファイルをCtrl／Shiftで選択、またはフォルダごと追加。ファイル名の自然順（01、02、…、10）で処理し、動画をまたいで重複するスライドを取り除きます。前のページへ戻った場面も、ほぼ同じ画像ならPDFには一度だけ掲載します。</p>
+            <p>名前順（01、02…10）に処理し、動画をまたいで重複するスライドは1回だけ載せます。</p>
           </article>
           <article>
+            <figure class="guide-media guide-media--file">
+              <div class="file-preview" aria-label="文字起こしファイルの例">
+                <div class="file-tab"><span>TXT</span>講義サンプル_transcript.txt</div>
+                <pre><code><span class="t"># 講義サンプル-01</span>
+<span class="ts">[00:00:00.000 --&gt; 00:00:06.990]</span> 今日は研究の進め方を3つの段階に分けて説明します。
+<span class="ts">[00:00:06.990 --&gt; 00:00:09.290]</span> まず問いを立てます。
+<span class="ts">[00:00:09.290 --&gt; 00:00:15.080]</span> 調べる範囲と前提をはっきりさせましょう。
+<span class="ts">[00:00:15.080 --&gt; 00:00:17.880]</span> 次に根拠を集めます。
+<span class="ts">[00:00:17.880 --&gt; 00:00:23.880]</span> アンケートや記録など、複数の方法を組み合わせます。</code></pre>
+              </div>
+              <figcaption>実際の出力（faster-whisper small）。SRT字幕も同時に保存されます。</figcaption>
+            </figure>
             <h3>動画の音声や録音を、文字で読む</h3>
-            <p>faster-whisperが発話を文字起こしし、時刻付きテキストと字幕ファイルを保存します。MP3・M4A・WAVの音声だけでも利用可能。言語は自然に検出するほか、日本語・英語などを指定でき、聞き直したい箇所を時刻からたどれます。</p>
+            <p>faster-whisperで時刻付きテキストとSRT字幕を作ります。MP3・M4A・WAVだけでも使えます。</p>
           </article>
           <article>
+            <figure class="guide-media guide-media--file">
+              <div class="file-preview note-preview" aria-label="講義ノートの例">
+                <div class="file-tab"><span>MD</span>講義サンプル_lecture_notes.md</div>
+                <div class="note-body">
+                  <strong>Slide 2</strong>
+                  <img src="/samples/slide-2.png" alt="スライド2「問いを立てる」" width="640" height="360" loading="lazy" />
+                  <small>講義サンプル-01 - 00:00:07</small>
+                  <p>まず問いを立てます。<br />調べる範囲と前提をはっきりさせましょう。</p>
+                </div>
+              </div>
+              <figcaption>スライド画像と、表示中に話していた内容が並びます。</figcaption>
+            </figure>
             <h3>スライドと、そのときの説明を並べる</h3>
-            <p>スライドの表示時刻と発話のタイムスタンプを照合し、画像と対応する文字起こしをMarkdownの講義ノートへ整理。音声だけの場合は、画像なしの時刻付きノートを作ります。説明を読みながら、どのページの話か確認できます。</p>
+            <p>スライドの表示時間と発話を照合し、Markdownの講義ノートにまとめます。</p>
           </article>
           <article>
+            <figure class="guide-media guide-media--full">
+              <img src="/screenshots/lectavo-region.png" alt="動画プレビュー上でスライドを緑の枠、ページ番号を黄の枠で指定する範囲選択画面" width="900" height="680" loading="lazy" />
+            </figure>
             <h3>登壇者や操作パネルを、抽出範囲から外す</h3>
-            <p>動画プレビュー上で、資料のある範囲とページ番号の位置をドラッグ指定。時刻を変えて確認したり、数値で微調整したりできます。指定した範囲は同じ処理の全動画に適用されるので、画面構成が違う動画は分けて処理してください。</p>
+            <p>プレビュー上で、スライドとページ番号の範囲をドラッグで指定できます。</p>
           </article>
           <article>
+            <figure class="guide-media">
+              <img src="/screenshots/detail-outputs.png" alt="出力内容のチェックボックス、保存先、ファイル名の付け方と出力名の例が表示された設定画面" width="886" height="456" loading="lazy" />
+            </figure>
             <h3>まとめて保存も、ファイル別の保存も</h3>
-            <p>「まとめて出力」ではPDF・文字起こし・字幕・ノートをそれぞれ1つに統合。「動画ごとに出力」では入力ごとにフォルダを分けます。保存先や出力内容を選び、名前には入力名の共通部分、自由な名前、日付・日時を使えます。</p>
+            <p>1フォルダにまとめるか、動画ごとに分けるかを選べます。ファイル名には共通名や日時を付けられます。</p>
           </article>
         </div>
         <div class="supported-inputs">
@@ -254,173 +356,58 @@
             <div><dt>動画</dt><dd>MP4 / MOV / MKV / AVI / WEBM / M4V</dd></div>
             <div><dt>音声</dt><dd>MP3 / M4A / WAV</dd></div>
           </dl>
-          <p>手元のファイルを選択するアプリです。WebサイトのURLから動画をダウンロードする機能ではありません。</p>
+          <p>手元のファイルを処理します。URLから動画を取得する機能はありません。</p>
         </div>
       </section>
 
-      <section class="cuda-section" id="cuda" aria-labelledby="cuda-title">
-        <div class="cuda-copy reveal">
-          <p class="section-index section-index--dark">02 / GPU TRANSCRIPTION</p>
-          <h2 id="cuda-title">
-            <span class="heading-line">
-              <span class="no-break">faster-whisper</span><span class="no-break">を、</span>
-            </span>
-            <span class="heading-line"><span class="no-break">NVIDIA GPU</span>で。</span>
-          </h2>
-          <p>
-            CUDA 12向けcuBLASランタイムをアプリに同梱。対応するNVIDIA GPUとcuDNN 9環境では、
-            faster-whisperの文字起こしをGPUで実行できます。
-          </p>
-          <dl class="cuda-facts">
-            <div><dt>Runtime</dt><dd>CUDA 12 / cuBLAS</dd></div>
-            <div><dt>Engine</dt><dd>faster-whisper 1.2.1</dd></div>
-            <div><dt>Fallback</dt><dd>CPU int8へ自動切替</dd></div>
-          </dl>
-          <p class="cuda-note">
-            GPUや必要DLLを利用できない場合も停止せず、「CUDAが使えないためCPUで続行しました」と通知します。
-          </p>
-        </div>
-
-        <div class="compute-visual reveal" aria-label="CUDA文字起こしの動作イメージ">
-          <div class="compute-header">
-            <span>TRANSCRIPTION ENGINE</span>
-            <strong><i></i> CUDA READY</strong>
-          </div>
-          <div class="waveform" aria-hidden="true">
-            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-          </div>
-          <div class="compute-row">
-            <span>NVIDIA GPU</span>
-            <div class="meter"><i style="--meter: 92%"></i></div>
-            <strong>92%</strong>
-          </div>
-          <div class="compute-row">
-            <span>VRAM</span>
-            <div class="meter"><i style="--meter: 58%"></i></div>
-            <strong>58%</strong>
-          </div>
-          <div class="transcript-preview">
-            <span>00:12.480</span>
-            <p>講義の音声を解析し、タイムスタンプ付きで整理しています。</p>
-            <span>00:18.920</span>
-            <p>スライドの表示時間と発話内容を自動で対応付けます。</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="features reveal" aria-labelledby="features-title">
-        <p class="section-index">03 / OUTPUTS</p>
-        <h2 id="features-title">
-          <span class="heading-line">戻ったページも、</span>
-          <span class="heading-line"><span class="no-break">複数動画も、</span><span class="no-break">きれいに一つへ。</span></span>
-        </h2>
-        <div class="feature-lines">
+      <section class="next-features reveal" id="next" aria-labelledby="next-title">
+        <p class="section-index">NEW IN 0.4</p>
+        <h2 id="next-title">やり直しの負担を、減らす。</h2>
+                <div class="next-grid">
           <article>
-            <span>PDF</span>
-            <div>
-              <h3>重複のないスライド</h3>
-              <p>検出したスライドを、画像の縦横比を保ったPDFとして保存。最初に登場した順に並べ、ほぼ同じスライドの再登場を省きます。画像ファイルも選べば、PNGを個別に取り出して使えます。</p>
-            </div>
+            <span class="next-icon"><svg class="icon" aria-hidden="true"><use href="#i-resume"/></svg></span>
+                        <h3>途中保存・処理再開</h3>
+            <p>閉じてもエラーでも、完了した部分は保存。続きから再開できます。</p>
           </article>
           <article>
-            <span>TXT</span>
-            <div>
-              <h3>読める文字起こし</h3>
-              <p>TXTには発話と開始・終了時刻を記録。別途生成するSRTは、字幕対応のプレーヤーや編集ソフトで利用できます。複数ファイルをまとめたSRTは、各ファイルの長さを使って時刻を連結します。</p>
-            </div>
+            <span class="next-icon"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg></span>
+                        <h3>処理前チェック</h3>
+            <p>空き容量・モデル・GPU・音声を開始前に確認します。</p>
           </article>
           <article>
-            <span>MD</span>
-            <div>
-              <h3>スライド別の講義ノート</h3>
-              <p>スライド画像と対応する発話を、Markdown形式のノートにまとめます。画像は相対パスで参照するため、ノートを別の場所へ移す場合は画像フォルダも一緒に移してください。AIによる自動要約ではなく、発話を整理した資料です。</p>
-            </div>
+            <span class="next-icon"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg></span>
+                        <h3>スライドの確認・修正</h3>
+            <p>削除・並べ替え・場面の追加をしてからPDFを確定できます。</p>
           </article>
         </div>
-      </section>
-
-      <section class="features features--updates reveal" aria-label="Lectavo 0.3の新機能">
-        <div class="feature-lines">
-          <article>
-            <span>AREA</span>
-            <div><h3>残したい範囲を、画面で。</h3><p>動画のプレビューを見ながら、スライドとページ番号の範囲をドラッグで指定。登壇者や操作パネルを除き、選んだ範囲だけを画像に残せます。</p></div>
-          </article>
-          <article>
-            <span>UPDATE</span>
-            <div><h3>更新は、あなたのタイミングで。</h3><p>新しいバージョンをバックグラウンドで確認。許可を得てからダウンロードし、ファイルを検証。インストール前にも確認します。</p></div>
-          </article>
-          <article>
-            <span>STARTUP</span>
-            <div><h3>開いたら、すぐ次の操作へ。</h3><p>画像・音声の処理ライブラリは必要なときに読み込む構成へ。すでに起動していれば既存のウィンドウを表示し、重複起動も防ぎます。</p></div>
-          </article>
-        </div>
-      </section>
-
-      <section class="screens" id="screens" aria-labelledby="screens-title">
-        <div class="screens-heading reveal">
-          <p class="section-index">04 / ACTUAL APP</p>
-          <div class="screens-heading-copy">
-            <h2 id="screens-title">
-              <span class="heading-line heading-line--adaptive">
-                <span class="no-break">必要なものだけが</span><span class="no-break">見える、</span>
-              </span>
-              <span class="heading-line">静かな操作画面。</span>
-            </h2>
-            <p>日本語・英語UI、CPU・GPU、高速・標準・高精度の処理品質を選択できます。</p>
-          </div>
-        </div>
-        <figure class="screen-main reveal">
-          <div class="window-bar" aria-hidden="true">
-            <span>Lectavo</span><i></i><i></i><i></i>
-          </div>
-          <img
-            src="/screenshots/lectavo-ready.png"
-            alt="講義サンプル動画を追加し、出力内容を設定しているLectavoの画面"
-          />
-        </figure>
-        <figure class="screen-secondary reveal">
-          <img
-            src="/screenshots/lectavo-home.png"
-            alt="動画を選択できるLectavoのホーム画面"
-          />
-          <figcaption>実際のLectavo 0.3.1 Windowsアプリ画面</figcaption>
-        </figure>
-        <figure class="screen-detail reveal">
-          <img src="/screenshots/lectavo-region.png" alt="動画上でスライドを緑の枠、ページ番号を黄の枠で指定するLectavoの範囲選択画面" width="900" height="680" loading="lazy" />
-          <figcaption>プレビューの時刻を変えて確認。ドラッグでも数値入力でも範囲を指定できます。</figcaption>
-        </figure>
-        <figure class="screen-detail reveal">
-          <img src="/screenshots/lectavo-audio.png" alt="MP3とM4Aを追加し、文字起こしと講義ノートを選択したLectavoの画面" width="1280" height="800" loading="lazy" />
-          <figcaption>音声ファイルを追加すると、文字起こしとノートの出力へ自動で切り替わります。</figcaption>
-        </figure>
       </section>
 
       <section class="guide questions" id="questions" aria-labelledby="questions-title">
         <p class="section-index">BEFORE YOU START</p>
         <h2 id="questions-title">使う前に、知っておきたいこと。</h2>
         <details>
-          <summary>どのような手順で使いますか？</summary>
-          <div><ol><li>ホームから動画・音声を選ぶか、ファイルやフォルダをドロップします。</li><li>処理画面で出力内容・保存先・処理品質を選びます。必要ならスライドの検出範囲も指定します。</li><li>「処理を開始」を押します。進捗を確認でき、キャンセルも可能です。</li><li>完了画面から保存先、PDF、文字起こしを開きます。履歴から過去の処理も確認できます。</li></ol></div>
+          <summary>途中でアプリを閉じたり、エラーになったりしたら？</summary>
+          <div><p>完了した部分は自動で保存されます。ホームの「続きから再開」、またはエラー画面の「続きから再実行」で残りだけを処理します。</p></div>
         </details>
         <details>
           <summary>GPUやAPIキーは必要ですか？</summary>
-          <div><p>GPUも外部サービスのAPIキーも必須ではありません。CPUだけで動作します。対応するNVIDIA GPUと必要なCUDA／cuDNN環境があれば、文字起こしをGPUで実行できます。GPUを利用できない場合はCPUに自動で切り替え、その旨を表示します。速度はモデル・録音時間・PC性能によって異なります。</p></div>
+          <div><p>どちらも不要です。CPUだけで動きます。NVIDIA GPUがあれば文字起こしが速くなります。</p></div>
         </details>
         <details>
           <summary>ファイルは外部へ送信されますか？</summary>
-          <div><p>解析と文字起こしはPC上で実行し、動画・音声を文字起こし用の外部APIへ送信しません。初回のWhisperモデル取得とアプリの更新確認にはインターネット接続を使います。モデル取得後は、キャッシュがあればオフラインでも処理できます。</p></div>
+          <div><p>送信しません。処理はすべてPC上で行います。ネット接続は、初回のモデル取得と更新確認だけに使います。</p></div>
         </details>
         <details>
           <summary>結果は必ず正確になりますか？</summary>
-          <div><p>完全な検出・認識を保証するものではありません。細かなアニメーション、よく似たページ、短時間だけ表示されるスライドは、取り逃しや重複が生じることがあります。検出プリセット・しきい値・範囲指定で調整できます。文字起こしも雑音、専門用語、複数人の同時発話などに影響されるため、重要な内容は元の録音と照合してください。</p></div>
+          <div><p>完全ではありません。よく似たページは取り逃すことがあるので、完了後の「スライドを確認・修正」で補えます。文字起こしも、重要な箇所は元の録音で確認してください。</p></div>
         </details>
         <details>
           <summary>無音とエラーは見分けられますか？</summary>
-          <div><p>音量がほぼゼロなら「無音」、音はあるものの発話を認識できなければ「発話未検出」と表示します。モデルの取得・読み込み失敗は別のエラーとして案内します。無音を処理失敗として扱ったり、モデルエラーを無音として表示したりしません。</p></div>
+          <div><p>はい。「無音」「発話未検出」「モデルのエラー」を区別して表示します。</p></div>
         </details>
         <details>
           <summary>自動要約や文字検索もできますか？</summary>
-          <div><p>現時点では、LLMによる自動要約やスライド画像のOCRは行いません。PDFの各ページは画像です。発話の検索・編集にはTXTやMarkdownを利用してください。音声だけの入力から、スライド画像やPDFは生成しません。</p></div>
+          <div><p>現在は対応していません。PDFのページは画像です。発話の検索にはTXTやMarkdownを使ってください。</p></div>
         </details>
       </section>
 
@@ -429,12 +416,10 @@
         <div class="download-copy reveal">
           <p class="section-index section-index--dark">DOWNLOAD</p>
           <h2 id="download-title">動画を、<br />PDFと文字起こしへ。</h2>
-          <p>
-            Pythonやpipのインストールは不要です。セットアップを実行して、そのままLectavoを起動できます。
-          </p>
+          <p>セットアップを実行するだけで使えます。Pythonなどの準備は不要です。</p>
           <div class="requirements">
             <span>Windows 10 / 11 x64</span>
-            <span>約613 MB</span>
+            <span>約614 MB</span>
             <span>Whisperモデルは初回取得</span>
           </div>
         </div>
@@ -442,16 +427,16 @@
           <img src="/app-icon.png" width="88" height="88" alt="Lectavo" />
           <a
             class="button button--large button--light"
-            href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.3.1-x64.exe"
+            href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.4.1-x64.exe"
             data-download
           >
-            Lectavo-setup-0.3.1-x64.exe
+            Lectavo-setup-0.4.1-x64.exe
             <span aria-hidden="true">↓</span>
           </a>
           <a class="text-link text-link--light" href="https://github.com/Kou-256/Lectavo/releases/latest">
             リリースノートとSHA-256
           </a>
-          <small>Version 0.3.1 ・ MIT License ・ 未署名</small>
+          <small>Version 0.4.1 ・ MIT License ・ 未署名</small>
         </div>
       </section>
     </main>

@@ -1,4 +1,31 @@
-# Lectavo
+<p align="center">
+  <img src="assets/app_icon.png" alt="Lectavo icon" width="128" height="128" />
+</p>
+
+<h1 align="center">Lectavo</h1>
+
+<p align="center">Turn lecture videos into slide PDFs, transcripts, and lecture notes. A free Windows desktop app.</p>
+
+<p align="center"><a href="https://lectavo.vercel.app"><strong>Website</strong></a> ・ <a href="https://github.com/Kou-256/Lectavo/releases/latest"><strong>Download latest release</strong></a> ・ <a href="README.md">日本語</a> ・ English</p>
+
+## New in 0.4.1
+
+- The installer shows Lectavo artwork instead of Inno Setup's default box-and-disc images.
+- The sidebar shows the app icon, and the active item's icon is highlighted.
+- Input files on the Process screen are fixed-height rows with a type icon, an elided name, and a colored status.
+- Thinner separators, aligned settings labels, and chevron icons for expandable sections.
+- Download `Lectavo-setup-0.4.1-x64.exe`.
+
+## New in 0.4.0
+
+- **Checkpoints and resume**: completed slide analysis and transcripts are saved. After the app closes, an error, or a cancellation, use Resume on Home or "Resume from where it stopped" on the error screen to run only the remaining work. A failed transcription is retried without repeating slide analysis. Saved data can be reviewed and deleted in Settings; data unused for 14 days is removed automatically.
+- **Pre-run check**: before starting, Lectavo checks input files, audio and video tracks, free space in the output and temporary folders, whether the transcription model is ready, and GPU availability. A clean check starts immediately; otherwise the notes are shown first.
+- **Review slides**: after processing, review the extracted slides, remove unwanted pages, drag to reorder, and add missed scenes from the video. "Finalize PDF" rebuilds the PDF and lecture notes; removed images go to the Recycle Bin.
+- Videos without an audio track now skip transcription with a warning instead of failing.
+- Home shows a four-step getting-started guide with new icons.
+- The legacy `Lectavo-Setup.exe` asset remains as a compatibility alias for older updaters.
+
+![Slide review screen](docs/images/lectavo-review.png)
 
 ## New in 0.3.1
 
@@ -26,8 +53,6 @@ CLI examples: `--name-mode common --name-date datetime` or `--name-mode custom -
 
 GUI and CLI default to the common video name with a timestamp. The old GUI defaults are migrated once; subsequent choices are preserved. Use `--name-mode original --name-date none` for legacy CLI filenames.
 
-[日本語](README.md) | [English](README.en.md) | [Website](https://lectavo.vercel.app) | [Download latest release](https://github.com/Kou-256/Lectavo/releases/latest)
-
 Lectavo is a Windows desktop application that turns lecture and presentation videos into deduplicated slide PDFs, timestamped transcripts, SRT subtitles, and slide-aligned Markdown lecture notes.
 
 ![Lectavo home screen](docs/images/lectavo-home.png)
@@ -49,7 +74,7 @@ Lectavo is a Windows desktop application that turns lecture and presentation vid
 
 ## Download
 
-Download `Lectavo-setup-0.3.1-x64.exe` from the [latest GitHub Release](https://github.com/Kou-256/Lectavo/releases/latest). The installed application does not require Python, pip, Git, a virtual environment, or a separate `ffmpeg.exe`.
+Download `Lectavo-setup-0.4.1-x64.exe` from the [latest GitHub Release](https://github.com/Kou-256/Lectavo/releases/latest). The installed application does not require Python, pip, Git, a virtual environment, or a separate `ffmpeg.exe`.
 
 - Windows 10 / 11 x64
 - Japanese UI by default
@@ -58,11 +83,11 @@ Download `Lectavo-setup-0.3.1-x64.exe` from the [latest GitHub Release](https://
 - GPU optional; CPU-only operation is supported
 - Desktop shortcut enabled by default
 
-The current `0.3.1` binary is unsigned, so Windows SmartScreen may display a warning. Compare the download with the SHA-256 value attached to the release.
+The current `0.4.1` binary is unsigned, so Windows SmartScreen may display a warning. Compare the download with the SHA-256 value attached to the release.
 
 ## Basic use
 
-1. Run `Lectavo-setup-0.3.1-x64.exe`.
+1. Run `Lectavo-setup-0.4.1-x64.exe`.
 2. Launch Lectavo from the desktop or Start Menu.
 3. Add videos with the file button, folder link, or drag and drop.
 4. Choose combined output or per-video output.

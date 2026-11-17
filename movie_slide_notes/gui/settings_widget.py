@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from PySide6.QtCore import QSettings, Qt, Signal
+from PySide6.QtCore import QSettings, QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QFormLayout,
     QFrame,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QSizePolicy,
@@ -20,7 +21,7 @@ from movie_slide_notes.duplicate_filter import DuplicateConfig
 from movie_slide_notes.gui.controls import NoWheelComboBox as QComboBox
 from movie_slide_notes.gui.controls import NoWheelDoubleSpinBox as QDoubleSpinBox
 from movie_slide_notes.gui.controls import NoWheelSpinBox as QSpinBox
-from movie_slide_notes.gui.i18n import tr
+from movie_slide_notes.gui.icons import icon
 from movie_slide_notes.slide_detector import SlideDetectionConfig
 from movie_slide_notes.transcriber import TranscriptionConfig
 
@@ -56,8 +57,13 @@ class ProcessingSettingsWidget(QWidget):
         processing_form.addRow("処理品質", self.preset_combo)
         root.addLayout(processing_form)
         self.region_select_button = QPushButton("画面で検出範囲を指定")
+        self.region_select_button.setIcon(icon("crop", 18))
+        self.region_select_button.setIconSize(QSize(18, 18))
         self.region_select_button.clicked.connect(self.region_requested.emit)
-        root.addWidget(self.region_select_button)
+        region_row = QHBoxLayout()
+        region_row.addWidget(self.region_select_button)
+        region_row.addStretch(1)
+        root.addLayout(region_row)
 
         self.slide_detail_button = disclosure_button("スライド検出の詳細")
         self.slide_detail_panel = QWidget()
@@ -212,6 +218,7 @@ class ProcessingSettingsWidget(QWidget):
         root.addWidget(self.developer_button)
         root.addWidget(self.developer_panel)
         root.addStretch(1)
+        align_form_labels(self)
 
     def _connect_signals(self) -> None:
         self.preset_combo.currentIndexChanged.connect(self._preset_changed)
@@ -234,11 +241,11 @@ class ProcessingSettingsWidget(QWidget):
 
     def _slide_detail_toggled(self, visible: bool) -> None:
         self.slide_detail_panel.setVisible(visible)
-        self.slide_detail_button.setText(("v " if visible else "> ") + tr("スライド検出の詳細"))
+        set_disclosure_state(self.slide_detail_button, visible)
 
     def _developer_toggled(self, visible: bool) -> None:
         self.developer_panel.setVisible(visible)
-        self.developer_button.setText(("v " if visible else "> ") + tr("開発者向け"))
+        set_disclosure_state(self.developer_button, visible)
 
     def apply_preset(self, preset_name: str) -> None:
         base = SlideDetectionConfig()
@@ -483,16 +490,42 @@ def section_title(text: str) -> QLabel:
     return label
 
 
+FORM_LABEL_WIDTH = 150
+
+
 def separator() -> QFrame:
     line = QFrame()
-    line.setFrameShape(QFrame.HLine)
-    line.setFrameShadow(QFrame.Plain)
+    line.setObjectName("Separator")
+    line.setFrameShape(QFrame.NoFrame)
+    line.setFixedHeight(1)
     return line
 
 
 def disclosure_button(text: str) -> QToolButton:
     button = QToolButton()
+    button.setObjectName("Disclosure")
     button.setCheckable(True)
-    button.setToolButtonStyle(Qt.ToolButtonTextOnly)
-    button.setText("> " + text)
+    button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+    button.setIconSize(QSize(18, 18))
+    button.setText(text)
+    set_disclosure_state(button, False)
     return button
+
+
+def set_disclosure_state(button: QToolButton, expanded: bool) -> None:
+    button.setIcon(icon("chevron-open" if expanded else "chevron-right", 18))
+
+
+def align_form_labels(root: QWidget, width: int = FORM_LABEL_WIDTH) -> None:
+    """Give every form the same label column so fields line up across sections."""
+    for form in root.findChildren(QFormLayout):
+        form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        form.setHorizontalSpacing(16)
+        form.setVerticalSpacing(12)
+        for row in range(form.rowCount()):
+            item = form.itemAt(row, QFormLayout.LabelRole)
+            label = item.widget() if item is not None else None
+            if isinstance(label, QLabel):
+                label.setFixedWidth(width)
+                label.setMinimumHeight(36)
+                label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)

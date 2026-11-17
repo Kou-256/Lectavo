@@ -58,6 +58,7 @@ from movie_slide_notes.core.processor import (
     discover_videos,
     natural_video_sort_key,
 )
+from movie_slide_notes.gui.controls import ElidedLabel
 from movie_slide_notes.gui.controls import NoWheelComboBox as QComboBox
 from movie_slide_notes.gui.design_tokens import LAYOUT, SPACING, build_stylesheet
 from movie_slide_notes.gui.i18n import (
@@ -66,10 +67,22 @@ from movie_slide_notes.gui.i18n import (
     tr,
     translate_widget_tree,
 )
-from movie_slide_notes.gui.settings_widget import ProcessingSettingsWidget
+from movie_slide_notes.gui.icons import icon as svg_icon
+from movie_slide_notes.gui.icons import icon_pixmap as svg_pixmap
+from movie_slide_notes.gui.icons import toggle_icon
+from movie_slide_notes.gui.settings_widget import (
+    FORM_LABEL_WIDTH,
+    ProcessingSettingsWidget,
+    separator,
+)
 from movie_slide_notes.gui.worker import ProcessingWorker
 from movie_slide_notes.media import AUDIO_EXTENSIONS, MEDIA_EXTENSIONS, VIDEO_EXTENSIONS
-from movie_slide_notes.paths import resource_path, user_config_dir, user_log_dir
+from movie_slide_notes.paths import (
+    resource_path,
+    user_cache_dir,
+    user_config_dir,
+    user_log_dir,
+)
 from movie_slide_notes.version import APP_DESCRIPTION, APP_NAME, APP_PUBLISHER, __version__
 
 
@@ -91,6 +104,9 @@ class MainWindow(QMainWindow):
         self._syncing = False
         self._close_after_cancel = False
         self._cancel_requested = False
+        self._naming_moment: datetime | None = None
+        self._preflight_dialog = None
+        self.pending_job = self._load_pending_job()
 
         self.setWindowTitle(APP_NAME)
         self.resize(1100, 720)
@@ -140,10 +156,19 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(14, 14, 14, 14)
         sidebar_layout.setSpacing(8)
 
+        brand_row = QHBoxLayout()
+        brand_row.setContentsMargins(6, 4, 0, 0)
+        brand_row.setSpacing(10)
+        self.brand_icon = QLabel()
+        app_icon = resource_path("assets", "app_icon.png")
+        if app_icon.exists():
+            self.brand_icon.setPixmap(QIcon(str(app_icon)).pixmap(QSize(26, 26)))
         self.brand_label = QLabel(APP_NAME)
         self.brand_label.setObjectName("AppName")
-        sidebar_layout.addWidget(self.brand_label)
-        sidebar_layout.addSpacing(18)
+        brand_row.addWidget(self.brand_icon)
+        brand_row.addWidget(self.brand_label, 1)
+        sidebar_layout.addLayout(brand_row)
+        sidebar_layout.addSpacing(22)
 
         self.nav_home = nav_button("ホーム")
         self.nav_process = nav_button("処理")
@@ -162,7 +187,7 @@ class MainWindow(QMainWindow):
             (self.nav_settings, "settings"),
             (self.nav_help, "help"),
         ]:
-            button.setIcon(QIcon(str(resource_path("assets", "icons", f"{icon_name}.svg"))))
+            button.setIcon(toggle_icon(icon_name, 20))
             button.setIconSize(QSize(20, 20))
         sidebar_layout.addWidget(self.nav_settings)
         sidebar_layout.addWidget(self.nav_help)
@@ -203,6 +228,8 @@ class MainWindow(QMainWindow):
         self.file_tabs.setObjectName("FileTabs")
         self.file_tabs.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.file_tabs.setTextElideMode(Qt.ElideMiddle)
+        self.file_tabs.setUniformItemSizes(True)
+        self.file_tabs.setSpacing(2)
         self.file_tabs.setAccessibleName(tr("入力ファイル"))
         self.file_tabs.setToolTip(
             tr("Ctrlで複数選択、Shiftで範囲選択できます。設定は全ファイルに適用されます。")
@@ -229,13 +256,41 @@ class MainWindow(QMainWindow):
         empty_layout.addWidget(page_title("新しい処理"))
         empty_layout.addWidget(subtitle("動画や音声から資料と文字起こしを作成します。"))
 
+        self.resume_banner = QFrame()
+        self.resume_banner.setObjectName("ResumeBanner")
+        banner_layout = QHBoxLayout(self.resume_banner)
+        banner_layout.setContentsMargins(16, 14, 16, 14)
+        banner_layout.setSpacing(14)
+        banner_icon = QLabel()
+        banner_icon.setPixmap(icon_pixmap("resume", 28))
+        banner_layout.addWidget(banner_icon, alignment=Qt.AlignTop)
+        banner_text = QVBoxLayout()
+        banner_title = QLabel("前回の処理が完了していません")
+        banner_title.setObjectName("SectionTitle")
+        self.resume_detail = subtitle("")
+        banner_text.addWidget(banner_title)
+        banner_text.addWidget(self.resume_detail)
+        banner_layout.addLayout(banner_text, 1)
+        self.discard_resume_button = QPushButton("破棄")
+        self.discard_resume_button.setObjectName("LinkButton")
+        self.resume_button = QPushButton("続きから再開")
+        self.resume_button.setObjectName("PrimaryButton")
+        banner_layout.addWidget(self.discard_resume_button)
+        banner_layout.addWidget(self.resume_button)
+        self.resume_banner.setVisible(False)
+        empty_layout.addWidget(self.resume_banner)
+
         drop_zone = QFrame()
         drop_zone.setObjectName("DropZone")
-        drop_zone.setMinimumHeight(230)
+        drop_zone.setMinimumHeight(310)
         drop_layout = QVBoxLayout(drop_zone)
         drop_layout.setContentsMargins(32, 30, 32, 30)
         drop_layout.setSpacing(14)
         drop_layout.setAlignment(Qt.AlignCenter)
+        drop_hero = QLabel()
+        drop_hero.setPixmap(icon_pixmap("drop-hero", 72))
+        drop_hero.setAlignment(Qt.AlignCenter)
+        drop_layout.addWidget(drop_hero)
         drop_title = QLabel("動画・音声をここにドロップ")
         drop_title.setObjectName("SectionTitle")
         drop_title.setAlignment(Qt.AlignCenter)
@@ -252,6 +307,32 @@ class MainWindow(QMainWindow):
         drop_layout.addWidget(drop_hint)
         drop_layout.addWidget(self.select_folder_link, alignment=Qt.AlignCenter)
         empty_layout.addWidget(drop_zone, 1)
+        empty_layout.addWidget(section_title("使い方"))
+        self.steps_layout = QGridLayout()
+        self.steps_layout.setHorizontalSpacing(12)
+        self.steps_layout.setVerticalSpacing(12)
+        self.step_cards = [
+            step_card("step-add", "1", "ファイルを追加", "動画・音声をドロップするか選択します。"),
+            step_card(
+                "step-choose",
+                "2",
+                "出力を選ぶ",
+                "スライドPDFや文字起こしなど必要なものを選びます。",
+            ),
+            step_card(
+                "step-output",
+                "3",
+                "チェックして開始",
+                "開始前に空き容量・モデル・音声を自動で確認します。",
+            ),
+            step_card(
+                "step-review",
+                "4",
+                "確認・修正",
+                "抽出スライドを並べ替え・削除・追加してPDFを確定します。",
+            ),
+        ]
+        empty_layout.addLayout(self.steps_layout)
         empty_layout.addWidget(section_title("最近の処理"))
         self.recent_layout = QVBoxLayout()
         self.recent_layout.setSpacing(0)
@@ -387,8 +468,13 @@ class MainWindow(QMainWindow):
         quality_grid.setColumnStretch(1, 1)
         ready_layout.addLayout(quality_grid)
         self.region_button = QPushButton("画面で検出範囲を指定")
+        self.region_button.setIcon(svg_icon("crop", 18))
+        self.region_button.setIconSize(QSize(18, 18))
         self.region_button.clicked.connect(self.edit_region)
-        ready_layout.addWidget(self.region_button)
+        region_row = QHBoxLayout()
+        region_row.addWidget(self.region_button)
+        region_row.addStretch(1)
+        ready_layout.addLayout(region_row)
         self.region_hint = QLabel()
         self.region_hint.setWordWrap(True)
         self.region_hint.setObjectName("Hint")
@@ -396,6 +482,13 @@ class MainWindow(QMainWindow):
 
         ready_layout.addSpacing(20)
         action_row = QHBoxLayout()
+        self.preflight_button = QPushButton("処理前チェック")
+        self.preflight_button.setObjectName("LinkButton")
+        self.preflight_button.setIcon(QIcon(icon_path("preflight")))
+        self.preflight_button.setToolTip(
+            "モデル、GPU、出力先の空き容量、音声トラックを確認します。開始時にも自動で確認します。"
+        )
+        action_row.addWidget(self.preflight_button)
         action_row.addStretch(1)
         self.start_button = QPushButton("処理を開始")
         self.start_button.setObjectName("PrimaryButton")
@@ -449,7 +542,29 @@ class MainWindow(QMainWindow):
         self.complete_summary_layout = QVBoxLayout()
         self.complete_summary_layout.setSpacing(8)
         complete_layout.addLayout(self.complete_summary_layout)
-        complete_layout.addSpacing(16)
+        complete_layout.addSpacing(8)
+        self.review_panel = QFrame()
+        self.review_panel.setObjectName("SoftPanel")
+        review_layout = QHBoxLayout(self.review_panel)
+        review_layout.setContentsMargins(16, 14, 16, 14)
+        review_layout.setSpacing(14)
+        review_icon = QLabel()
+        review_icon.setPixmap(icon_pixmap("step-review", 40))
+        review_layout.addWidget(review_icon, alignment=Qt.AlignTop)
+        review_text = QVBoxLayout()
+        review_text.addWidget(section_title("スライドを確認しましょう"))
+        review_text.addWidget(
+            subtitle(
+                "不要なページの削除、順序の変更、取り逃した場面の追加をしてからPDFを確定できます。"
+            )
+        )
+        review_layout.addLayout(review_text, 1)
+        self.review_slides_button = QPushButton("スライドを確認・修正")
+        self.review_slides_button.setObjectName("PrimaryButton")
+        self.review_slides_button.setIcon(QIcon(icon_path("slides-review")))
+        review_layout.addWidget(self.review_slides_button, alignment=Qt.AlignVCenter)
+        complete_layout.addWidget(self.review_panel)
+        complete_layout.addSpacing(8)
         complete_actions = QHBoxLayout()
         self.complete_actions = complete_actions
         self.open_output_button = QPushButton("出力フォルダを開く")
@@ -477,7 +592,9 @@ class MainWindow(QMainWindow):
         self.error_message.setObjectName("ErrorText")
         self.error_message.setWordWrap(True)
         self.error_message.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
-        self.error_hint = subtitle("再試行するか、詳細ログを確認してください。")
+        self.error_hint = subtitle(
+            "「続きから再実行」では、完了した部分を再利用して失敗した処理だけをやり直します。"
+        )
         self.error_log_toggle = QPushButton("詳細を表示")
         self.error_log_toggle.setObjectName("LinkButton")
         self.error_log_text = QPlainTextEdit()
@@ -491,12 +608,19 @@ class MainWindow(QMainWindow):
         error_layout.addWidget(self.error_log_text, 1)
         error_actions = QHBoxLayout()
         self.error_actions = error_actions
-        self.retry_button = QPushButton("再試行")
+        self.retry_button = QPushButton("続きから再実行")
+        self.retry_button.setObjectName("PrimaryButton")
+        self.retry_button.setIcon(QIcon(icon_path("resume")))
+        self.retry_button.setToolTip(
+            "完了したスライド解析と文字起こしは再利用し、失敗した処理だけをやり直します。"
+        )
+        self.change_settings_button = QPushButton("設定を変更")
         self.copy_diagnostics_button = QPushButton("診断情報をコピー")
         self.open_logs_button = QPushButton("ログフォルダを開く")
         error_actions.addWidget(self.open_logs_button)
         error_actions.addWidget(self.copy_diagnostics_button)
         error_actions.addStretch(1)
+        error_actions.addWidget(self.change_settings_button)
         error_actions.addWidget(self.retry_button)
         error_layout.addLayout(error_actions)
         self.home_stack.addWidget(self.error_page)
@@ -538,12 +662,30 @@ class MainWindow(QMainWindow):
         self.settings_output_path = QLineEdit()
         self.settings_output_path.setReadOnly(True)
         self.settings_output_browse = QPushButton("変更")
-        default_output_row.addWidget(QLabel("デフォルト出力先"))
+        default_output_label = QLabel("デフォルト出力先")
+        default_output_label.setFixedWidth(FORM_LABEL_WIDTH)
+        default_output_row.setSpacing(16)
+        default_output_row.addWidget(default_output_label)
         default_output_row.addWidget(self.settings_output_path, 1)
         default_output_row.addWidget(self.settings_output_browse)
         layout.addLayout(default_output_row)
         layout.addWidget(separator())
         layout.addWidget(self.settings_widget)
+        layout.addWidget(section_title("途中保存と再開"))
+        layout.addWidget(separator())
+        self.resume_enabled_check = QCheckBox(
+            "完了したスライド解析と文字起こしを保存し、中断・失敗後に続きから再開する"
+        )
+        self.resume_enabled_check.setChecked(self.settings.value("resume_enabled", True, type=bool))
+        layout.addWidget(self.resume_enabled_check)
+        checkpoint_row = QHBoxLayout()
+        self.checkpoint_size_label = QLabel()
+        self.checkpoint_size_label.setObjectName("Hint")
+        self.clear_checkpoints_button = QPushButton("保存データを削除")
+        checkpoint_row.addWidget(self.checkpoint_size_label, 1)
+        checkpoint_row.addWidget(self.clear_checkpoints_button)
+        layout.addLayout(checkpoint_row)
+        layout.addWidget(separator())
         layout.addWidget(section_title("アプリの更新"))
         layout.addWidget(separator())
         self.auto_update_check = QCheckBox("起動時に更新を確認する")
@@ -568,7 +710,22 @@ class MainWindow(QMainWindow):
         layout.addSpacing(16)
 
         for title, lines in [
-            ("はじめに", ["1. 動画を追加", "2. 出力内容を選択", "3. 処理を開始"]),
+            (
+                "はじめに",
+                [
+                    "1. 動画を追加",
+                    "2. 出力内容を選択",
+                    "3. 処理を開始（開始前に自動でチェックします）",
+                    "4. 完了後に「スライドを確認・修正」でPDFを仕上げる",
+                ],
+            ),
+            (
+                "途中で止まったとき",
+                [
+                    "アプリを閉じたりエラーが起きたりしても、完了したスライド解析と文字起こしは保存されています。",
+                    "ホームの「続きから再開」、またはエラー画面の「続きから再実行」で、残りの処理だけを行います。",
+                ],
+            ),
             (
                 "よくある問題",
                 [
@@ -679,6 +836,15 @@ class MainWindow(QMainWindow):
         self.start_button.clicked.connect(self.start_processing)
         self.cancel_button.clicked.connect(self.cancel_processing)
         self.retry_button.clicked.connect(self._retry_processing)
+        self.change_settings_button.clicked.connect(self._change_settings_after_error)
+        self.preflight_button.clicked.connect(self.run_preflight_only)
+        self.review_slides_button.clicked.connect(self.open_slide_review)
+        self.resume_button.clicked.connect(self.resume_pending_job)
+        self.discard_resume_button.clicked.connect(self.discard_pending_job)
+        self.resume_enabled_check.toggled.connect(
+            lambda value: self.settings.setValue("resume_enabled", value)
+        )
+        self.clear_checkpoints_button.clicked.connect(self.clear_checkpoints)
         self.new_process_button.clicked.connect(self.new_process)
         self.open_output_button.clicked.connect(self.open_output_folder)
         self.open_pdf_button.clicked.connect(self.open_first_pdf)
@@ -750,6 +916,8 @@ class MainWindow(QMainWindow):
             self.restoreGeometry(geometry)
         self._operation_changed()
         self._refresh_region_hint()
+        self._refresh_resume_banner()
+        self._refresh_checkpoint_size()
 
     def _save_settings(self) -> None:
         self.settings.setValue("output_path", self.output_path.text())
@@ -922,19 +1090,16 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, tr("出力名"), tr(str(exc)))
             return
         self._save_settings()
-        self.log_messages.clear()
-        self._set_log_texts()
-        self.last_batch = None
-        self._cancel_requested = False
-        self.overall_progress.setValue(0)
-        self.run_started_at = datetime.now()
-        self._update_naming_preview(self.run_started_at)
-        self._update_elapsed()
-        self.elapsed_timer.start()
-        for path in self.videos:
-            self.video_statuses[path] = "待機中"
+        moment = self._naming_moment or datetime.now()
+        self._naming_moment = None
+        self._open_preflight(
+            Path(output),
+            self._processing_options(moment),
+            lambda: self._launch(Path(output), moment),
+        )
 
-        options = ProcessingOptions(
+    def _processing_options(self, moment: datetime) -> ProcessingOptions:
+        return ProcessingOptions(
             operations=self._operation_options(),
             slide_config=self.settings_widget.slide_config(),
             duplicate_config=self.settings_widget.duplicate_config(),
@@ -942,15 +1107,58 @@ class MainWindow(QMainWindow):
             per_video_dirs=True,
             output_mode=str(self.output_mode_combo.currentData()),
             show_progress=False,
-            output_naming=self._naming_config(self.run_started_at),
+            output_naming=self._naming_config(moment),
+            checkpoint_dir=self._checkpoint_dir(),
         )
+
+    def _checkpoint_dir(self) -> Path | None:
+        if not self.resume_enabled_check.isChecked():
+            return None
+        return user_cache_dir() / "checkpoints"
+
+    def _open_preflight(self, output: Path, options: ProcessingOptions, on_start=None) -> None:
+        from .preflight_dialog import PreflightDialog
+
+        dialog = PreflightDialog(self, start_mode=on_start is not None)
+        self._preflight_dialog = dialog
+        if on_start is not None:
+            dialog.accepted.connect(on_start)
+        dialog.finished.connect(lambda _result: setattr(self, "_preflight_dialog", None))
+        dialog.finished.connect(dialog.deleteLater)
+        dialog.open()
+        dialog.run(self.videos.copy(), output, options)
+
+    def run_preflight_only(self) -> None:
+        output = self.output_path.text().strip()
+        if not self.videos or not output:
+            return
+        self._open_preflight(Path(output), self._processing_options(datetime.now()))
+
+    def _launch(self, output: Path, moment: datetime) -> None:
+        if self.worker is not None or not self.videos:
+            return
+        self.log_messages.clear()
+        self._set_log_texts()
+        self.last_batch = None
+        self._cancel_requested = False
+        self.overall_progress.setValue(0)
+        self.run_started_at = datetime.now()
+        self._last_moment = moment
+        self._update_naming_preview(moment)
+        self._update_elapsed()
+        self.elapsed_timer.start()
+        for path in self.videos:
+            self.video_statuses[path] = "待機中"
+
+        options = self._processing_options(moment)
+        self._save_pending_job(output, moment)
         self._running_device_text = self.device_combo.currentText()
         self._refresh_running_settings()
 
         self._set_running(True)
         self._set_workflow_state("running")
         self.thread = QThread(self)
-        self.worker = ProcessingWorker(self.videos.copy(), Path(output), options)
+        self.worker = ProcessingWorker(self.videos.copy(), output, options)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.progress.connect(self.handle_progress)
@@ -993,8 +1201,9 @@ class MainWindow(QMainWindow):
             self.video_statuses[Path(event.video_path)] = stage_label(event.stage)
             for index in range(self.file_tabs.count()):
                 item = self.file_tabs.item(index)
-                if item.data(Qt.UserRole) == Path(event.video_path):
-                    item.setText(f"{event.video_path.name}\n{stage_label(event.stage)}")
+                row = self.file_tabs.itemWidget(item)
+                if item.data(Qt.UserRole) == Path(event.video_path) and row is not None:
+                    row.set_status(stage_label(event.stage))
             self.running_title.setText(tr(f"{event.video_path.name} を処理しています"))
         self.running_stage.setText(stage_label(event.stage))
         self.running_detail.setText(tr(event.message))
@@ -1025,6 +1234,8 @@ class MainWindow(QMainWindow):
         self._add_history(batch)
         self._refresh_recent()
         self._refresh_history()
+        if not batch.failed_count:
+            self._clear_pending_job()
         if batch.failed_count:
             self.error_message.setText(
                 tr(
@@ -1063,6 +1274,7 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(0, lambda: self._update_downloaded(pending))
         self.thread = None
         self._refresh_video_list()
+        self._refresh_checkpoint_size()
         self._cancel_requested = False
         if self._close_after_cancel:
             self._close_after_cancel = False
@@ -1074,6 +1286,7 @@ class MainWindow(QMainWindow):
         self.video_statuses.clear()
         self.last_batch = None
         self._refresh_video_list()
+        self._refresh_resume_banner()
         self._set_workflow_state("empty")
         self._select_page("home")
 
@@ -1090,6 +1303,9 @@ class MainWindow(QMainWindow):
         self.output_browse.setEnabled(not running)
         self.settings_output_browse.setEnabled(not running)
         self.start_button.setEnabled(not running)
+        self.preflight_button.setEnabled(not running)
+        self.resume_button.setEnabled(not running)
+        self.resume_enabled_check.setEnabled(not running)
         self.cancel_button.setEnabled(running)
         for checkbox in [
             self.output_pdf,
@@ -1155,11 +1371,14 @@ class MainWindow(QMainWindow):
         self.file_tabs.blockSignals(True)
         self.file_tabs.clear()
         for path in self.videos:
-            status = tr(self.video_statuses.get(path, "待機中"))
-            item = QListWidgetItem(f"{path.name}\n{status}")
+            status = self.video_statuses.get(path, "待機中")
+            item = QListWidgetItem()
             item.setData(Qt.UserRole, path)
+            item.setData(Qt.AccessibleTextRole, f"{path.name} {tr(status)}")
             item.setToolTip(str(path))
+            item.setSizeHint(QSize(0, FILE_ROW_HEIGHT))
             self.file_tabs.addItem(item)
+            self.file_tabs.setItemWidget(item, FileTabRow(path, status))
             if path in selected:
                 item.setSelected(True)
             if path == current_path:
@@ -1316,6 +1535,10 @@ class MainWindow(QMainWindow):
                 label = QLabel(result.video_path.name + ": " + tr(result.transcription.warning))
                 label.setWordWrap(True)
                 self.complete_summary_layout.addWidget(label)
+        if batch.reused_count:
+            reused_label = QLabel(tr(f"保存済みの結果を再利用: {batch.reused_count} 件"))
+            reused_label.setObjectName("MutedText")
+            self.complete_summary_layout.addWidget(reused_label)
         if batch.output_mode == "combined" and batch.combined_duplicate_count:
             duplicate_label = QLabel(tr(f"動画間の重複除去: {batch.combined_duplicate_count} 枚"))
             duplicate_label.setObjectName("SuccessText")
@@ -1327,11 +1550,146 @@ class MainWindow(QMainWindow):
             batch.combined_transcript_path is not None
             or any(result.transcription for result in batch.results)
         )
+        has_slides = bool(batch.combined_slides) or (
+            batch.output_mode != "combined" and any(result.slides for result in batch.results)
+        )
+        self.review_panel.setVisible(has_slides)
 
     def _retry_processing(self) -> None:
+        if not self.videos:
+            return
+        self._naming_moment = getattr(self, "_last_moment", None)
+        self.start_processing()
+
+    def _change_settings_after_error(self) -> None:
         if self.videos:
             self._set_workflow_state("ready")
             self._select_page("processing")
+
+    # Resume -------------------------------------------------------------------------
+
+    def _load_pending_job(self) -> dict | None:
+        raw = str(self.settings.value("pending_job", ""))
+        if not raw:
+            return None
+        try:
+            job = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(job, dict) or not isinstance(job.get("videos"), list):
+            return None
+        return job
+
+    def _save_pending_job(self, output: Path, moment: datetime) -> None:
+        if self._checkpoint_dir() is None:
+            self._clear_pending_job()
+            return
+        self.pending_job = {
+            "videos": [str(path) for path in self.videos],
+            "output": str(output),
+            "moment": moment.isoformat(timespec="seconds"),
+            "started": moment.strftime("%Y-%m-%d %H:%M"),
+        }
+        self.settings.setValue("pending_job", json.dumps(self.pending_job, ensure_ascii=False))
+        self.settings.sync()
+
+    def _clear_pending_job(self) -> None:
+        self.pending_job = None
+        self.settings.remove("pending_job")
+        self._refresh_resume_banner()
+
+    def _refresh_resume_banner(self) -> None:
+        job = self.pending_job
+        if not job:
+            self.resume_banner.setVisible(False)
+            return
+        videos = [Path(path) for path in job.get("videos", [])]
+        names = ", ".join(path.name for path in videos[:2])
+        if len(videos) > 2:
+            names += tr(f" ほか{len(videos) - 2}件")
+        self.resume_detail.setText(
+            tr(f"{job.get('started', '')} に開始: {names}")
+            + "\n"
+            + tr("完了したスライド解析と文字起こしを再利用して、残りの処理だけを行います。")
+        )
+        self.resume_banner.setVisible(True)
+
+    def resume_pending_job(self) -> None:
+        job = self.pending_job
+        if not job or self.worker is not None:
+            return
+        videos = [Path(path) for path in job.get("videos", []) if Path(path).is_file()]
+        if not videos:
+            QMessageBox.information(
+                self,
+                tr("続きから再開"),
+                tr("入力ファイルが見つからないため再開できません。"),
+            )
+            self._clear_pending_job()
+            return
+        self.videos.clear()
+        self.video_statuses.clear()
+        self.add_paths(videos)
+        if job.get("output"):
+            self._set_output_path(Path(job["output"]))
+        try:
+            self._naming_moment = datetime.fromisoformat(str(job.get("moment")))
+        except ValueError:
+            self._naming_moment = None
+        self.start_processing()
+
+    def discard_pending_job(self) -> None:
+        self._clear_pending_job()
+
+    def _refresh_checkpoint_size(self) -> None:
+        from movie_slide_notes.core.checkpoint import CheckpointStore
+        from movie_slide_notes.core.preflight import format_mb
+
+        size = CheckpointStore(user_cache_dir() / "checkpoints").size_bytes()
+        self.checkpoint_size_label.setText(
+            tr(f"保存データ: {format_mb(size / 1024 / 1024)}")
+            + "  "
+            + tr("（14日以上使われないデータは自動で削除されます）")
+        )
+        self.clear_checkpoints_button.setEnabled(size > 0 and self.worker is None)
+
+    def clear_checkpoints(self) -> None:
+        if self.worker is not None:
+            return
+        answer = QMessageBox.question(
+            self,
+            tr("保存データを削除"),
+            tr("途中保存したデータを削除しますか？\n\n出力済みのPDFや文字起こしは削除されません。"),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer != QMessageBox.Yes:
+            return
+        from movie_slide_notes.core.checkpoint import CheckpointStore
+
+        CheckpointStore(user_cache_dir() / "checkpoints").clear()
+        self._refresh_checkpoint_size()
+
+    # Slide review -------------------------------------------------------------------
+
+    def open_slide_review(self) -> None:
+        if self.last_batch is None or self.worker is not None:
+            return
+        from .slide_review_dialog import SlideReviewDialog
+
+        dialog = SlideReviewDialog(self.last_batch, self.last_batch.slide_region, self)
+        translate_widget_tree(dialog)
+        if dialog.exec() == QDialog.Accepted and dialog.outcomes:
+            self._populate_complete_summary(self.last_batch)
+            removed = sum(outcome.removed for outcome in dialog.outcomes)
+            added = sum(outcome.added for outcome in dialog.outcomes)
+            label = QLabel(
+                tr(f"スライドを修正し、PDFを更新しました（削除 {removed} 枚 / 追加 {added} 枚）")
+            )
+            label.setObjectName("SuccessText")
+            label.setWordWrap(True)
+            self.complete_summary_layout.addWidget(label)
+            self.append_log(label.text())
 
     def new_process(self) -> None:
         if self.worker is not None:
@@ -1750,6 +2108,11 @@ class MainWindow(QMainWindow):
                 self.outputs_grid.addWidget(
                     checkbox, index if compact else index // 2, 0 if compact else index % 2
                 )
+            columns = 1 if self.width() < 760 else 2 if self.width() < 1280 else 4
+            for card in self.step_cards:
+                self.steps_layout.removeWidget(card)
+            for index, card in enumerate(self.step_cards):
+                self.steps_layout.addWidget(card, index // columns, index % columns)
             direction = QBoxLayout.TopToBottom if compact else QBoxLayout.LeftToRight
             self.complete_actions.setDirection(direction)
             self.error_actions.setDirection(direction)
@@ -1816,6 +2179,7 @@ def stage_label(stage: str) -> str:
             "transcribe": "文字起こし中",
             "markdown": "Markdown生成中",
             "combined_pdf": "統合PDF生成中",
+            "reused": "保存済みの結果を再利用",
             "done": "完了",
             "error": "エラー",
         }.get(stage, stage)
@@ -1870,13 +2234,6 @@ def nav_button(text: str) -> QPushButton:
     return button
 
 
-def separator() -> QFrame:
-    line = QFrame()
-    line.setFrameShape(QFrame.HLine)
-    line.setFrameShadow(QFrame.Plain)
-    return line
-
-
 def clear_layout(layout) -> None:
     while layout.count():
         item = layout.takeAt(0)
@@ -1916,6 +2273,89 @@ def history_row(entry: dict[str, str], delete_callback=None) -> QWidget:
         )
         layout.addWidget(delete_button)
     return row
+
+
+FILE_ROW_HEIGHT = 56
+
+
+def file_status_state(status: str) -> str:
+    lowered = status.lower()
+    if "エラー" in status or "error" in lowered:
+        return "error"
+    if status in {"待機中", "キャンセル", "Waiting", "Cancelled"}:
+        return "idle"
+    if status.startswith("完了") or lowered.startswith("completed"):
+        return "warning" if ("（" in status or "(" in status) else "done"
+    return "active"
+
+
+class FileTabRow(QWidget):
+    """One input file in the left rail: type icon, name, and colored status."""
+
+    def __init__(self, path: Path, status: str):
+        super().__init__()
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(10)
+        kind = "file-audio" if path.suffix.lower() in AUDIO_EXTENSIONS else "file-video"
+        self.kind_icon = QLabel()
+        self.kind_icon.setPixmap(svg_pixmap(kind, 20))
+        self.kind_icon.setFixedSize(22, 22)
+        layout.addWidget(self.kind_icon, 0, Qt.AlignVCenter)
+        text = QVBoxLayout()
+        text.setContentsMargins(0, 0, 0, 0)
+        text.setSpacing(1)
+        self.name_label = ElidedLabel(path.name)
+        self.name_label.setObjectName("FileName")
+        self.status_label = QLabel()
+        self.status_label.setObjectName("FileStatus")
+        text.addWidget(self.name_label)
+        text.addWidget(self.status_label)
+        layout.addLayout(text, 1)
+        self.set_status(status)
+
+    def set_status(self, status: str) -> None:
+        self.status_label.setText("● " + tr(status))
+        self.status_label.setProperty("state", file_status_state(status))
+        self.status_label.style().unpolish(self.status_label)
+        self.status_label.style().polish(self.status_label)
+
+
+def icon_path(name: str) -> str:
+    return str(resource_path("assets", "icons", f"{name}.svg"))
+
+
+def icon_pixmap(name: str, size: int):
+    return QIcon(icon_path(name)).pixmap(QSize(size, size))
+
+
+def step_card(icon_name: str, number: str, title: str, body: str) -> QFrame:
+    card = QFrame()
+    card.setObjectName("StepCard")
+    card.setMinimumWidth(0)
+    card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    layout = QHBoxLayout(card)
+    layout.setContentsMargins(14, 14, 14, 14)
+    layout.setSpacing(12)
+    image = QLabel()
+    image.setPixmap(icon_pixmap(icon_name, 40))
+    layout.addWidget(image, alignment=Qt.AlignTop)
+    text = QVBoxLayout()
+    text.setSpacing(2)
+    step = QLabel(f"STEP {number}")
+    step.setObjectName("StepNumber")
+    heading = QLabel(title)
+    heading.setStyleSheet("font-weight: 600;")
+    description = QLabel(body)
+    description.setObjectName("SecondaryText")
+    description.setWordWrap(True)
+    description.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+    text.addWidget(step)
+    text.addWidget(heading)
+    text.addWidget(description)
+    layout.addLayout(text, 1)
+    return card
 
 
 def set_combo_data(combo: QComboBox, data) -> None:

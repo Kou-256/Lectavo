@@ -32,6 +32,10 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
+; Lectavo artwork instead of Inno Setup's default box-and-disc images.
+; Regenerate with scripts/generate_installer_images.py.
+WizardImageFile=wizard\large-164.bmp,wizard\large-246.bmp,wizard\large-328.bmp,wizard\large-410.bmp
+WizardSmallImageFile=wizard\small-55.bmp,wizard\small-83.bmp,wizard\small-110.bmp,wizard\small-138.bmp
 Compression=lzma2
 SolidCompression=yes
 CloseApplications=yes
