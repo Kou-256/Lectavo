@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -62,6 +61,7 @@ from movie_slide_notes.gui.controls import ElidedLabel
 from movie_slide_notes.gui.controls import NoWheelComboBox as QComboBox
 from movie_slide_notes.gui.design_tokens import LAYOUT, SPACING, build_stylesheet
 from movie_slide_notes.gui.i18n import (
+    DEFAULT_UI_LANGUAGE,
     current_ui_language,
     set_ui_language,
     tr,
@@ -77,6 +77,7 @@ from movie_slide_notes.gui.settings_widget import (
     section_header,
     separator,
 )
+from movie_slide_notes.gui.splash import system_prefers_dark
 from movie_slide_notes.gui.worker import ProcessingWorker
 from movie_slide_notes.media import AUDIO_EXTENSIONS, MEDIA_EXTENSIONS, VIDEO_EXTENSIONS
 from movie_slide_notes.paths import (
@@ -125,7 +126,7 @@ class MainWindow(QMainWindow):
         self._load_settings()
         self._connect_signals()
         self._apply_theme()
-        self._apply_ui_language()
+        self._apply_ui_language(initial=True)
         self._set_workflow_state("empty")
         self._update_responsive()
         from .update_manager import UpdateManager
@@ -948,7 +949,6 @@ class MainWindow(QMainWindow):
         self._operation_changed()
         self._refresh_region_hint()
         self._refresh_resume_banner()
-        self._refresh_checkpoint_size()
 
     def _save_settings(self) -> None:
         self.settings.setValue("output_path", self.output_path.text())
@@ -1442,6 +1442,9 @@ class MainWindow(QMainWindow):
                 button.setChecked(name == page)
         if page == "history":
             self._refresh_history()
+        elif page == "settings":
+            # Scanning the checkpoint folder is only needed when it is shown.
+            self._refresh_checkpoint_size()
 
     def _refresh_video_list(self) -> None:
         selected = {item.data(Qt.UserRole) for item in self.file_tabs.selectedItems()}
@@ -2239,9 +2242,12 @@ class MainWindow(QMainWindow):
         dark = theme == "dark" or (theme == "system" and system_prefers_dark())
         app.setStyleSheet(build_stylesheet(dark))
 
-    def _apply_ui_language(self) -> None:
+    def _apply_ui_language(self, initial: bool = False) -> None:
         set_ui_language(str(self.settings_widget.ui_language_combo.currentData()))
-        translate_widget_tree(self)
+        # Widgets are created in Japanese, so at startup there is nothing to
+        # translate; a later language change still walks the whole tree.
+        if not (initial and current_ui_language() == DEFAULT_UI_LANGUAGE):
+            translate_widget_tree(self)
         self.about_text.setText(
             f"{APP_NAME}\nVersion {__version__}\n{tr('発行元')}: {APP_PUBLISHER}"
             f"\n\n{tr(APP_DESCRIPTION)}"
@@ -2253,22 +2259,6 @@ class MainWindow(QMainWindow):
         self._refresh_running_settings()
         self.settings.setValue("ui_language", current_ui_language())
         self._update_responsive()
-
-
-def system_prefers_dark() -> bool:
-    if os.name != "nt":
-        return False
-    try:
-        import winreg
-
-        key = winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER,
-            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
-        )
-        value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
-        return int(value) == 0
-    except OSError:
-        return False
 
 
 def stage_label(stage: str) -> str:

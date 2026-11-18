@@ -13,8 +13,7 @@ from PySide6.QtGui import QFont, QIcon
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
-from movie_slide_notes.gui.i18n import DEFAULT_UI_LANGUAGE, set_ui_language
-from movie_slide_notes.gui.main_window import MainWindow
+from movie_slide_notes.gui.i18n import DEFAULT_UI_LANGUAGE, set_ui_language, tr
 from movie_slide_notes.logging_config import setup_file_logging
 from movie_slide_notes.paths import app_icon_path, user_cache_dir, user_config_dir
 from movie_slide_notes.version import APP_NAME
@@ -60,8 +59,25 @@ def main() -> int:
     icon_path = app_icon_path()
     if icon_path and icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
+    splash = None
+    if "--smoke" not in sys.argv:
+        # Show something right away; building the main window takes a moment.
+        from movie_slide_notes.gui.splash import show_startup_splash, theme_is_dark
+
+        splash = show_startup_splash(
+            app,
+            icon_path,
+            theme_is_dark(str(settings.value("theme", "system"))),
+            tr("起動しています…"),
+        )
+    # Imported only now so the splash is not delayed by the heavy GUI modules.
+    from movie_slide_notes.gui.main_window import MainWindow
+
     window = MainWindow(icon_path=icon_path)
     window.show()
+    if splash is not None:
+        app.processEvents()  # let the main window paint before the splash goes away
+        splash.close()
     if instance_server is not None:
 
         def activate_window():

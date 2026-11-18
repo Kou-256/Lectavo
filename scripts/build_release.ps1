@@ -150,6 +150,7 @@ try {
     $ReleaseNotes = @"
 Lectavo $Version
 
+- 0.4.5: Startup splash for faster-feeling launch; fixed clipped installer checkboxes.
 - 0.4.4: Save next to the input by default; aligned settings layout; smooth disclosure sections.
 - 0.4.3: Frame and one-second stepping in the crop dialog, with exact frame seeking.
 - 0.4.2: Per-video crop timelines for layouts that change mid-video.

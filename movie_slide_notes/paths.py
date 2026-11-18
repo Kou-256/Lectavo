@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+from functools import cache
 from pathlib import Path
 
 from .version import APP_NAME
@@ -35,6 +36,13 @@ def get_resource_base_dirs() -> list[Path]:
 
 
 def resource_path(*parts: str) -> Path:
+    return _resource_path(parts)
+
+
+@cache
+def _resource_path(parts: tuple[str, ...]) -> Path:
+    # Bundled resources never move while the app runs, and startup looks up the
+    # same icons many times, so remember each answer.
     bases = get_resource_base_dirs()
     for base in bases:
         candidate = base.joinpath(*parts)

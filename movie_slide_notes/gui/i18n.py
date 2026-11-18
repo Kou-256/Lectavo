@@ -17,6 +17,7 @@ _current_language = DEFAULT_UI_LANGUAGE
 
 
 ENGLISH: dict[str, str] = {
+    "起動しています…": "Starting…",
     "ファイル": "Files",
     "ファイルを追加": "Add files",
     "選択を削除": "Remove selected",
