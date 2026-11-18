@@ -34,8 +34,18 @@ if (-not $Signtool) {
         }
     }
 }
+$StoreCert = $null
 if (-not $Signtool) {
-    throw "signtool.exe was not found. Install the Windows SDK to sign binaries."
+    # No Windows SDK: sign with PowerShell's built-in Authenticode support instead.
+    if ($CertSha1) {
+        $StoreCert = Get-Item "Cert:\CurrentUser\My\$CertSha1" -ErrorAction SilentlyContinue
+    }
+    else {
+        $StoreCert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($CertPath, $CertPassword)
+    }
+    if (-not $StoreCert) {
+        throw "signtool.exe was not found and the certificate could not be loaded."
+    }
 }
 
 $Targets = @()
@@ -49,6 +59,31 @@ if ($Stage -in @("Installer", "All")) {
 
 foreach ($Target in $Targets) {
     if (-not (Test-Path $Target)) {
+        continue
+    }
+
+    if ($StoreCert) {
+        Write-Host "Signing: $Target"
+        $sig = $null
+        foreach ($server in @($TimestampUrl, "http://timestamp.sectigo.com", $null)) {
+            try {
+                if ($server) {
+                    $sig = Set-AuthenticodeSignature -FilePath $Target -Certificate $StoreCert -HashAlgorithm SHA256 -TimestampServer $server -ErrorAction Stop
+                }
+                else {
+                    Write-Warning "Timestamp servers unreachable; signing without a timestamp."
+                    $sig = Set-AuthenticodeSignature -FilePath $Target -Certificate $StoreCert -HashAlgorithm SHA256 -ErrorAction Stop
+                }
+                if ($sig.SignerCertificate) { break }
+            }
+            catch { Write-Warning "Signing attempt failed: $($_.Exception.Message)" }
+        }
+        # A self-signed certificate reports UnknownError (untrusted root) until it is trusted; only require the signature itself.
+        $check = Get-AuthenticodeSignature -FilePath $Target
+        if (-not $check.SignerCertificate -or $check.SignerCertificate.Thumbprint -ne $StoreCert.Thumbprint) {
+            throw "Signature verification failed: $Target"
+        }
+        Write-Host "Signed ($($check.Status)): $Target"
         continue
     }
 
