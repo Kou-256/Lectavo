@@ -150,6 +150,7 @@ try {
     $ReleaseNotes = @"
 Lectavo $Version
 
+- 0.4.4: Save next to the input by default; aligned settings layout; smooth disclosure sections.
 - 0.4.3: Frame and one-second stepping in the crop dialog, with exact frame seeking.
 - 0.4.2: Per-video crop timelines for layouts that change mid-video.
 - 0.4.2: Option for slides without page numbers; maximizable crop dialog.

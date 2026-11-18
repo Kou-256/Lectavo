@@ -8,11 +8,17 @@
 
 <p align="center"><a href="https://lectavo.vercel.app"><strong>公式サイト</strong></a> ・ <a href="https://github.com/Kou-256/Lectavo/releases/latest"><strong>最新版をダウンロード</strong></a> ・ 日本語 ・ <a href="README.en.md">English</a></p>
 
+## 0.4.4 の改善
+
+- **動画と同じフォルダに保存**（初期設定でオン）: 結果を入力した動画のフォルダに保存します。「動画ごとに出力」では各動画のフォルダに、「まとめて出力」では最初の動画のフォルダに保存します。オフにすると従来どおり保存先を選べます。
+- 設定画面と処理画面の項目を、項目名と入力欄の2列にそろえました。「画面で検出範囲を指定」も他の項目と同じ列に並びます。
+- 「スライド検出の詳細」「開発者向け」を開閉したときのちらつきをなくし、滑らかに開閉するようにしました。
+- 配布ファイル名は `Lectavo-setup-0.4.4-x64.exe` です。
+
 ## 0.4.3 の改善
 
 - **範囲指定のコマ送り**: 範囲指定画面に「−1秒」「−1コマ」「+1コマ」「+1秒」ボタンを追加しました。キーボードの ←→ で1コマ、Shift+←→ で1秒移動できます。
 - 時刻は 0.01 秒単位とコマ番号で表示し、指定した時刻のフレームを正確に読み込みます。配置が切り替わる瞬間に合わせて区切りを追加できます。
-- 配布ファイル名は `Lectavo-setup-0.4.3-x64.exe` です。
 
 ![範囲指定画面のコマ送り](docs/images/lectavo-region.png)
 
@@ -76,7 +82,7 @@ Lectavoは、講義・プレゼンテーション動画から重複のないス�
 
 ## ダウンロード
 
-一般ユーザーは[最新のGitHub Release](https://github.com/Kou-256/Lectavo/releases/latest)から`Lectavo-setup-0.4.3-x64.exe`を取得してください。インストール後の利用にPython、pip、Git、仮想環境、外部`ffmpeg.exe`は不要です。
+一般ユーザーは[最新のGitHub Release](https://github.com/Kou-256/Lectavo/releases/latest)から`Lectavo-setup-0.4.4-x64.exe`を取得してください。インストール後の利用にPython、pip、Git、仮想環境、外部`ffmpeg.exe`は不要です。
 
 - 対応: Windows 10 / 11 x64
 - 初期UI言語: 日本語
@@ -85,7 +91,7 @@ Lectavoは、講義・プレゼンテーション動画から重複のないス�
 - GPU: 任意。CPUのみでも利用可能
 - デスクトップショートカット: 既定で作成
 
-現在の`0.4.3`配布物は未署名です。Windows SmartScreenが警告する場合があります。ダウンロード後はReleaseに掲載されたSHA-256と照合してください。
+現在の`0.4.4`配布物は未署名です。Windows SmartScreenが警告する場合があります。ダウンロード後はReleaseに掲載されたSHA-256と照合してください。
 
 ## 使い方
 
@@ -103,7 +109,7 @@ Lectavoは、講義・プレゼンテーション動画から重複のないス�
 
 ![音声ファイルの文字起こし](docs/images/lectavo-audio.png)
 
-1. `Lectavo-setup-0.4.3-x64.exe`を実行します。
+1. `Lectavo-setup-0.4.4-x64.exe`を実行します。
 2. デスクトップまたはスタートメニューからLectavoを起動します。
 3. 「動画を選択」、フォルダ選択、またはドラッグ＆ドロップで動画を追加します。
 4. 「まとめて出力」または「動画ごとに出力」を選びます。

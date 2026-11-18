@@ -352,6 +352,17 @@ ENGLISH: dict[str, str] = {
     "1秒進む（Shift+→）": "Forward 1 second (Shift+→)",
     "コマ": "Frame",
     "←→で1コマ、Shift+←→で1秒移動します。": "Use ←/→ to move one frame and Shift+←/→ to move one second.",
+    "動画と同じフォルダに保存する": "Save next to the input file",
+    "オンにすると、入力した動画・音声があるフォルダに結果を保存します。": "When on, results are saved in the folder that holds each input video or audio file.",
+    "動画・音声と同じフォルダに保存します。": "Results are saved next to the input files.",
+    "ほかのフォルダ": "Other folder",
+    "完了した処理を保存し、中断後に続きから再開する": "Keep finished work and resume after an interruption",
+    "途中保存": "Checkpoints",
+    "保存データ": "Saved data",
+    "自動確認": "Automatic check",
+    "手動確認": "Check now",
+    "検出範囲": "Detection area",
+    "ページ番号": "Page numbers",
 }
 
 
@@ -425,6 +436,8 @@ def _translate_english(source: str) -> str:
             r"音声の一時保存に約 (.+) 必要です（空き (.+)）。",
             r"About \1 is needed to store audio temporarily (\2 free).",
         ),
+        (r"ほか(\d+)フォルダ", r"and \1 more folders"),
+        (r"保存先: (.+)", r"Save to: \1"),
         (r"エラー: (.+)", r"Error: \1"),
         (r"出力方法: (.+)", r"Output mode: \1"),
         (r"出力: (.+)", r"Outputs: \1"),

@@ -114,6 +114,8 @@ class ProcessingOptions:
     region_schedules: dict[str, tuple] = field(default_factory=dict)
     # Combined output goes into one folder per run inside output_dir.
     run_folder: bool = True
+    # Save outputs in each input file's own folder instead of output_dir.
+    output_next_to_input: bool = False
 
 
 @dataclass
@@ -234,9 +236,11 @@ def process_batch(
         ),
     )
     validate_options(options)
+    videos = sorted((Path(path) for path in video_paths), key=natural_video_sort_key)
+    if options.output_next_to_input and videos:
+        output_dir = videos[0].parent
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    videos = sorted((Path(path) for path in video_paths), key=natural_video_sort_key)
     if options.output_mode == "combined" and options.run_folder:
         output_dir = output_dir / run_folder_name(videos, options.output_naming)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -270,9 +274,12 @@ def process_batch(
                 break
 
             try:
-                video_work_output = (
-                    work_output_dir / f"{index:04d}" if combined_mode else work_output_dir
-                )
+                if combined_mode:
+                    video_work_output = work_output_dir / f"{index:04d}"
+                elif options.output_next_to_input:
+                    video_work_output = video_path.parent
+                else:
+                    video_work_output = work_output_dir
                 result = process_video(
                     video_path=video_path,
                     output_dir=video_work_output,

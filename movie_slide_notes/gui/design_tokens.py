@@ -166,6 +166,14 @@ QLabel#FileStatus {{
     font-size: 12px;
     color: {colors.muted_text};
 }}
+QFrame#StatusDot {{
+    border-radius: 4px;
+    background: {colors.muted_text};
+}}
+QFrame#StatusDot[state="done"] {{ background: {colors.success}; }}
+QFrame#StatusDot[state="active"] {{ background: {colors.accent}; }}
+QFrame#StatusDot[state="warning"] {{ background: {colors.warning}; }}
+QFrame#StatusDot[state="error"] {{ background: {colors.error}; }}
 QLabel#FileStatus[state="done"] {{ color: {colors.success}; }}
 QLabel#FileStatus[state="active"] {{ color: {colors.accent}; }}
 QLabel#FileStatus[state="warning"] {{ color: {colors.warning}; }}
