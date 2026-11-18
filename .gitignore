@@ -22,3 +22,4 @@ website/dist/
 *.log
 *.tmp
 *.wav
+signing/

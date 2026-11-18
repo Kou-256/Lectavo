@@ -54,12 +54,32 @@ function New-PortableZip {
         [string]$DestinationPath
     )
 
-    for ($Attempt = 1; $Attempt -le 5; $Attempt++) {
+    # Compress-Archive draws a per-file progress bar; with ~500 files and a captured,
+    # non-interactive host that has been a source of silent aborts, and it also writes
+    # backslash entry names. Stream with System.IO.Compression instead.
+    $ProgressPreference = "SilentlyContinue"
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
         try {
             if (Test-Path $DestinationPath) {
                 Remove-Item -LiteralPath $DestinationPath -Force
             }
-            Compress-Archive -LiteralPath $SourceDirectory -DestinationPath $DestinationPath -CompressionLevel Optimal -ErrorAction Stop
+            # Entry names use "/" as the zip format requires (CreateFromDirectory writes backslashes here).
+            $Base = (Get-Item -LiteralPath $SourceDirectory).Parent.FullName.TrimEnd("\") + "\"
+            $Archive = [System.IO.Compression.ZipFile]::Open($DestinationPath, [System.IO.Compression.ZipArchiveMode]::Create)
+            try {
+                foreach ($File in Get-ChildItem -LiteralPath $SourceDirectory -Recurse -File) {
+                    $EntryName = $File.FullName.Substring($Base.Length).Replace("\", "/")
+                    [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                        $Archive, $File.FullName, $EntryName, [System.IO.Compression.CompressionLevel]::Optimal)
+                }
+            }
+            finally {
+                $Archive.Dispose()
+            }
+            if ((Get-Item -LiteralPath $DestinationPath).Length -lt 1MB) {
+                throw "Portable zip is unexpectedly small."
+            }
             return $true
         }
         catch {
