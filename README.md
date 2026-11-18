@@ -4,7 +4,7 @@
 
 <h1 align="center">Lectavo</h1>
 
-<p align="center">講義動画を、スライドPDF・文字起こし・講義ノートへ。Windows向けの無料デスクトップアプリ。</p>
+<p align="center">動画を、スライドPDF・文字起こし・講義ノートへ。Windows向けの無料デスクトップアプリ。</p>
 
 <p align="center"><a href="https://lectavo.vercel.app"><strong>公式サイト</strong></a> ・ <a href="https://github.com/Kou-256/Lectavo/releases/latest"><strong>最新版をダウンロード</strong></a> ・ 日本語 ・ <a href="README.en.md">English</a></p>
 
