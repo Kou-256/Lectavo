@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from PySide6.QtCore import QSettings, QSize, Qt, Signal
+from PySide6.QtCore import (
+    QEasingCurve,
+    QPropertyAnimation,
+    QSettings,
+    QSize,
+    Qt,
+    Signal,
+)
 from PySide6.QtWidgets import (
     QCheckBox,
     QFormLayout,
@@ -41,12 +48,10 @@ class ProcessingSettingsWidget(QWidget):
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(20)
+        root.setSpacing(12)
 
-        root.addWidget(section_title("処理"))
-        processing_form = QFormLayout()
-        processing_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-        processing_form.setLabelAlignment(Qt.AlignRight)
+        section_header(root, "処理")
+        processing_form = form_layout()
 
         self.preset_combo = QComboBox()
         self.preset_combo.addItem("高速", "conservative")
@@ -56,7 +61,6 @@ class ProcessingSettingsWidget(QWidget):
             "通常は標準で十分です。高精度は短時間だけ表示されたスライドを拾いやすくなります。"
         )
         processing_form.addRow("処理品質", self.preset_combo)
-        root.addLayout(processing_form)
         self.region_select_button = QPushButton("画面で検出範囲を指定")
         self.region_select_button.setIcon(icon("crop", 18))
         self.region_select_button.setIconSize(QSize(18, 18))
@@ -64,18 +68,21 @@ class ProcessingSettingsWidget(QWidget):
         region_row = QHBoxLayout()
         region_row.addWidget(self.region_select_button)
         region_row.addStretch(1)
-        root.addLayout(region_row)
+        processing_form.addRow("検出範囲", region_row)
         self.no_page_number_check = QCheckBox("スライドにページ番号がない")
         self.no_page_number_check.setToolTip(
             "オンにすると、ページ番号の変化ではスライドの切り替わりを判定しません。"
             "ページ番号のない資料で、余計な抽出を防げます。"
         )
-        root.addWidget(self.no_page_number_check)
+        processing_form.addRow("ページ番号", self.no_page_number_check)
         self.region_schedules: dict[str, list] = {}
 
         self.slide_detail_button = disclosure_button("スライド検出の詳細")
+        processing_form.addRow(QLabel(""), self.slide_detail_button)
+        root.addLayout(processing_form)
         self.slide_detail_panel = QWidget()
         detail_layout = QFormLayout(self.slide_detail_panel)
+        detail_layout.setContentsMargins(0, 8, 0, 8)
         detail_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         detail_layout.setLabelAlignment(Qt.AlignRight)
 
@@ -166,14 +173,10 @@ class ProcessingSettingsWidget(QWidget):
         )
         detail_layout.addRow("重複SSIMしきい値", self.duplicate_ssim_threshold)
         self.slide_detail_panel.setVisible(False)
-        root.addWidget(self.slide_detail_button)
         root.addWidget(self.slide_detail_panel)
 
-        root.addWidget(separator())
-        root.addWidget(section_title("文字起こし"))
-        transcript_form = QFormLayout()
-        transcript_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-        transcript_form.setLabelAlignment(Qt.AlignRight)
+        section_header(root, "文字起こし")
+        transcript_form = form_layout()
 
         self.language_combo = QComboBox()
         self.language_combo.addItem("自然に検出", "auto")
@@ -190,11 +193,8 @@ class ProcessingSettingsWidget(QWidget):
         transcript_form.addRow("品質", self.model_combo)
         root.addLayout(transcript_form)
 
-        root.addWidget(separator())
-        root.addWidget(section_title("外観"))
-        appearance_form = QFormLayout()
-        appearance_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-        appearance_form.setLabelAlignment(Qt.AlignRight)
+        section_header(root, "外観")
+        appearance_form = form_layout()
         self.theme_combo = QComboBox()
         self.theme_combo.addItem("システム設定に追従", "system")
         self.theme_combo.addItem("ライト", "light")
@@ -206,10 +206,13 @@ class ProcessingSettingsWidget(QWidget):
         appearance_form.addRow("テーマ", self.theme_combo)
         root.addLayout(appearance_form)
 
-        root.addWidget(separator())
         self.developer_button = disclosure_button("開発者向け")
+        developer_row = form_layout()
+        developer_row.addRow(QLabel(""), self.developer_button)
+        root.addLayout(developer_row)
         self.developer_panel = QWidget()
         developer_layout = QFormLayout(self.developer_panel)
+        developer_layout.setContentsMargins(0, 8, 0, 8)
         developer_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         developer_layout.setLabelAlignment(Qt.AlignRight)
 
@@ -224,7 +227,6 @@ class ProcessingSettingsWidget(QWidget):
         developer_layout.addRow("計算精度", self.compute_type_combo)
 
         self.developer_panel.setVisible(False)
-        root.addWidget(self.developer_button)
         root.addWidget(self.developer_panel)
         root.addStretch(1)
         align_form_labels(self)
@@ -256,11 +258,11 @@ class ProcessingSettingsWidget(QWidget):
         self._emit_changed()
 
     def _slide_detail_toggled(self, visible: bool) -> None:
-        self.slide_detail_panel.setVisible(visible)
+        animate_panel(self.slide_detail_panel, visible)
         set_disclosure_state(self.slide_detail_button, visible)
 
     def _developer_toggled(self, visible: bool) -> None:
-        self.developer_panel.setVisible(visible)
+        animate_panel(self.developer_panel, visible)
         set_disclosure_state(self.developer_button, visible)
 
     def apply_preset(self, preset_name: str) -> None:
@@ -523,6 +525,62 @@ def section_title(text: str) -> QLabel:
 
 
 FORM_LABEL_WIDTH = 150
+SECTION_GAP = 28
+PANEL_MAX_HEIGHT = 16777215
+
+
+def form_layout() -> QFormLayout:
+    """Form with the shared label column used across settings screens."""
+    form = QFormLayout()
+    form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+    form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+    form.setHorizontalSpacing(16)
+    form.setVerticalSpacing(12)
+    return form
+
+
+def section_header(layout: QVBoxLayout, title: str) -> None:
+    """Section title with a hairline under it; space above separates sections."""
+    layout.addSpacing(max(0, SECTION_GAP - layout.spacing()))
+    layout.addWidget(section_title(title))
+    layout.addWidget(separator())
+
+
+def animate_panel(panel: QWidget, expand: bool) -> None:
+    """Reveal or hide a disclosure panel by animating its height.
+
+    The parent layout grows in one continuous motion instead of jumping, which
+    removes the flash of a half-laid-out scroll page.
+    """
+    running = getattr(panel, "_height_animation", None)
+    if running is not None:
+        running.stop()
+    if expand:
+        start = panel.height() if panel.isVisible() else 0
+        panel.setMaximumHeight(start)
+        panel.setVisible(True)
+        end = panel.sizeHint().height()
+        duration = 200
+    else:
+        start = panel.height()
+        end = 0
+        duration = 150
+    animation = QPropertyAnimation(panel, b"maximumHeight", panel)
+    animation.setDuration(duration)
+    animation.setStartValue(start)
+    animation.setEndValue(end)
+    animation.setEasingCurve(QEasingCurve.OutCubic)
+
+    def finish() -> None:
+        if expand:
+            panel.setMaximumHeight(PANEL_MAX_HEIGHT)
+        else:
+            panel.setVisible(False)
+            panel.setMaximumHeight(PANEL_MAX_HEIGHT)
+
+    animation.finished.connect(finish)
+    panel._height_animation = animation
+    animation.start()
 
 
 def load_region_schedules(raw) -> dict[str, list]:
