@@ -215,6 +215,55 @@ QFrame#ResumeBanner {{
     border: 1px solid {colors.accent};
     border-radius: {RADIUS.panel}px;
 }}
+QPushButton#ChoiceCard {{
+    background: {colors.surface};
+    border: 1px solid {colors.control_border};
+    border-radius: {RADIUS.panel}px;
+    padding: 10px 14px;
+    text-align: left;
+    min-height: 44px;
+}}
+QPushButton#ChoiceCard:hover {{
+    border-color: {colors.accent};
+}}
+QPushButton#ChoiceCard:checked {{
+    background: {colors.accent_soft};
+    border: 1px solid {colors.accent};
+    color: {colors.primary_text};
+    font-weight: 600;
+}}
+QPushButton#TaskCard {{
+    background: {colors.surface};
+    border: 1px solid {colors.separator};
+    border-radius: {RADIUS.panel}px;
+    padding: 14px 16px;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 600;
+    min-height: 56px;
+}}
+QPushButton#TaskCard:hover {{
+    border-color: {colors.accent};
+    background: {colors.accent_soft};
+}}
+QFrame#PreviewPane {{
+    background: {colors.surface};
+    border: 1px solid {colors.separator};
+    border-radius: {RADIUS.panel}px;
+}}
+QLabel#PreviewCaption {{
+    color: {colors.secondary_text};
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLabel#Badge {{
+    color: {colors.accent};
+    background: {colors.accent_soft};
+    border-radius: 9px;
+    padding: 2px 9px;
+    font-size: 11px;
+    font-weight: 600;
+}}
 QFrame#StepCard {{
     background: {colors.surface};
     border: 1px solid {colors.separator};

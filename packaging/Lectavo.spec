@@ -60,11 +60,19 @@ for file_name in ["THIRD_PARTY_NOTICES.txt", "LICENSE"]:
     if (root / file_name).exists():
         datas.append((str(root / file_name), "."))
 datas += collect_data_files("faster_whisper", includes=["assets/*"])
+# Built-in local LLM: llama-server and its libraries (see scripts/fetch_llama_cpp.ps1).
+llama_dir = root / "vendor" / "llama.cpp"
+if llama_dir.exists():
+    datas.append((str(llama_dir), "llama.cpp"))
+# PDF translation: bundled OCR models/configs and the PDF renderer.
+datas += collect_data_files("rapidocr")
+datas += collect_data_files("pypdfium2_raw")
+datas += collect_data_files("pdfminer")
 datas += copy_metadata("nvidia-cublas-cu12")
 datas += copy_metadata("nvidia-cuda-nvrtc-cu12")
 
 binaries = []
-for package in ["ctranslate2", "nvidia.cublas", "nvidia.cuda_nvrtc"]:
+for package in ["ctranslate2", "nvidia.cublas", "nvidia.cuda_nvrtc", "pypdfium2_raw"]:
     binaries += collect_dynamic_libs(package)
 
 
@@ -84,6 +92,17 @@ a = Analysis(
         "nvidia.cuda_nvrtc",
         "av",
         "huggingface_hub",
+        "pypdfium2",
+        "pypdfium2_raw",
+        "pdfminer.high_level",
+        "pdfminer.layout",
+        "rapidocr",
+        "pyclipper",
+        "shapely",
+        "anthropic",
+        "movie_slide_notes.pdf_translate.pipeline",
+        "movie_slide_notes.pdf_translate.local_llm",
+        "movie_slide_notes.gui.compare_viewer",
         "PySide6.QtCore",
         "PySide6.QtGui",
         "PySide6.QtWidgets",

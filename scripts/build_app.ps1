@@ -51,6 +51,12 @@ try {
         }
     }
 
+    # Built-in local LLM runtime (pinned llama.cpp release, hash-checked).
+    & (Join-Path $Root "scripts\fetch_llama_cpp.ps1")
+    if (-not (Test-Path (Join-Path $Root "vendor\llama.cpp\llama-server.exe"))) {
+        throw "llama.cpp runtime is missing from vendor\llama.cpp."
+    }
+
     & $Python -m PyInstaller $SpecPath --noconfirm --clean
     if ($LASTEXITCODE -ne 0) {
         throw "PyInstaller build failed."

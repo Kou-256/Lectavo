@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import sys
 from pathlib import Path
@@ -62,13 +63,16 @@ def main() -> int:
     splash = None
     if "--smoke" not in sys.argv:
         # Show something right away; building the main window takes a moment.
-        from movie_slide_notes.gui.splash import show_startup_splash, theme_is_dark
+        from movie_slide_notes.gui.splash import TAGLINE, show_startup_splash, theme_is_dark
+        from movie_slide_notes.version import __version__
 
         splash = show_startup_splash(
             app,
             icon_path,
             theme_is_dark(str(settings.value("theme", "system"))),
             tr("起動しています…"),
+            version=__version__,
+            tagline=tr(TAGLINE),
         )
     # Imported only now so the splash is not delayed by the heavy GUI modules.
     from movie_slide_notes.gui.main_window import MainWindow
@@ -94,6 +98,13 @@ def main() -> int:
     if "--smoke" not in sys.argv and window.auto_update_check.isChecked():
         QTimer.singleShot(3000, window.check_updates)
     if "--smoke" in sys.argv:
+        from movie_slide_notes.pdf_translate.selfcheck import run_selfcheck
+
+        try:
+            run_selfcheck()
+        except Exception:
+            logging.getLogger("lectavo").exception("PDF translation self-check failed")
+            return 3
         QTimer.singleShot(0, app.quit)
     return app.exec()
 
