@@ -70,7 +70,7 @@
             "@id": "https://lectavo.vercel.app/#application",
             "name": "Lectavo",
             "url": "https://lectavo.vercel.app/",
-            "downloadUrl": "https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.4.5-x64.exe",
+            "downloadUrl": "https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.5.0-x64.exe",
             "image": "https://lectavo.vercel.app/lectavo-og-v2.png",
             "screenshot": [
               "https://lectavo.vercel.app/screenshots/lectavo-home.png",
@@ -81,7 +81,7 @@
             "applicationCategory": "EducationalApplication",
             "applicationSubCategory": "Lecture note generator",
             "operatingSystem": "Windows 10, Windows 11",
-            "softwareVersion": "0.4.5",
+            "softwareVersion": "0.5.0",
             "softwareRequirements": "Windows x64",
             "featureList": [
               "スライド変化検出",
@@ -137,9 +137,9 @@
       <nav aria-label="メインナビゲーション">
         <a href="#howto">使い方</a>
         <a href="#capabilities">できること</a>
-        <a href="#next">新機能</a>
+        <a href="#translate">PDF翻訳</a>
         <a href="#questions">よくある質問</a>
-        <a class="button button--small" href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.4.5-x64.exe" data-download>ダウンロード</a>
+        <a class="button button--small" href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.5.0-x64.exe" data-download>ダウンロード</a>
       </nav>
     </header>
 
@@ -161,7 +161,7 @@
           <div class="hero-actions">
             <a
               class="button button--large"
-              href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.4.5-x64.exe"
+              href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.5.0-x64.exe"
               data-download
             >
               Windows版をダウンロード
@@ -171,7 +171,7 @@
               GitHubで見る
             </a>
           </div>
-          <p class="release-meta">Version 0.4.5 ・ 無料 ・ Python不要</p>
+          <p class="release-meta">Version 0.5.0 ・ 無料 ・ Python不要</p>
         </div>
 
         <div class="hero-status" aria-label="Lectavoの処理機能">
@@ -364,6 +364,33 @@
         </div>
       </section>
 
+      <section class="guide reveal" id="translate" aria-labelledby="translate-title">
+        <p class="section-index">NEW IN 0.5</p>
+        <h2 id="translate-title">PDFを、レイアウトそのままで翻訳。</h2>
+        <p class="guide-intro">下の画像は、サンプルの英語PDFを内蔵ローカルLLM（Qwen3 4B）で実際に日本語へ翻訳した結果です。図・数式・段組みは元のまま残ります。</p>
+        <figure class="guide-media guide-media--full">
+          <img src="/screenshots/translate-compare.png" alt="比較ビューア。左に英語の論文PDF、右に同じレイアウトのまま日本語に翻訳したPDFが並び、図と数式はそのまま残っている" width="1440" height="860" loading="lazy" />
+          <figcaption>「拡大して比較」で、翻訳前と翻訳後を画面いっぱいに並べて確認できます。</figcaption>
+        </figure>
+        <div class="next-grid">
+          <article>
+            <span class="next-icon"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg></span>
+            <h3>PCの中だけで、無料で翻訳</h3>
+            <p>標準は内蔵ローカルLLM。モデル（2.5〜7.2GB）を一度ダウンロードすれば、本文を外部に送らずオフラインで翻訳します。</p>
+          </article>
+          <article>
+            <span class="next-icon"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg></span>
+            <h3>17言語・3つの訳し方</h3>
+            <p>日本語・英語・中国語・韓国語・欧州各言語に対応。意訳・直訳・やさしい日本語から選べ、対訳PDFも作れます。</p>
+          </article>
+          <article>
+            <span class="next-icon"><svg class="icon" aria-hidden="true"><use href="#i-resume"/></svg></span>
+            <h3>スキャンPDFもOCRで</h3>
+            <p>文字情報のないページは自動で読み取ってから翻訳。Claude・OpenAI・Gemini・DeepLにも切り替えられます。</p>
+          </article>
+        </div>
+      </section>
+
       <section class="next-features reveal" id="next" aria-labelledby="next-title">
         <p class="section-index">NEW IN 0.4</p>
         <h2 id="next-title">やり直しの負担を、減らす。</h2>
@@ -431,16 +458,16 @@
           <img src="/app-icon.png" width="88" height="88" alt="Lectavo" />
           <a
             class="button button--large button--light"
-            href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.4.5-x64.exe"
+            href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.5.0-x64.exe"
             data-download
           >
-            Lectavo-setup-0.4.5-x64.exe
+            Lectavo-setup-0.5.0-x64.exe
             <span aria-hidden="true">↓</span>
           </a>
           <a class="text-link text-link--light" href="https://github.com/Kou-256/Lectavo/releases/latest">
             リリースノートとSHA-256
           </a>
-          <small>Version 0.4.5 ・ MIT License ・ 未署名</small>
+          <small>Version 0.5.0 ・ MIT License ・ 未署名</small>
         </div>
       </section>
     </main>

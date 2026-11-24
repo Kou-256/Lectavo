@@ -70,6 +70,11 @@ from movie_slide_notes.gui.i18n import (
 from movie_slide_notes.gui.icons import icon as svg_icon
 from movie_slide_notes.gui.icons import icon_pixmap as svg_pixmap
 from movie_slide_notes.gui.icons import toggle_icon
+from movie_slide_notes.gui.pdf_translate_page import (
+    EngineSettings,
+    EngineSettingsWidget,
+    PdfTranslatePage,
+)
 from movie_slide_notes.gui.settings_widget import (
     ProcessingSettingsWidget,
     align_form_labels,
@@ -175,9 +180,11 @@ class MainWindow(QMainWindow):
 
         self.nav_home = nav_button("ホーム")
         self.nav_process = nav_button("処理")
+        self.nav_translate = nav_button("PDF翻訳")
         self.nav_history = nav_button("履歴")
         sidebar_layout.addWidget(self.nav_home)
         sidebar_layout.addWidget(self.nav_process)
+        sidebar_layout.addWidget(self.nav_translate)
         sidebar_layout.addWidget(self.nav_history)
         sidebar_layout.addStretch(1)
         sidebar_layout.addWidget(separator())
@@ -186,6 +193,7 @@ class MainWindow(QMainWindow):
         for button, icon_name in [
             (self.nav_home, "home"),
             (self.nav_process, "processing"),
+            (self.nav_translate, "translate"),
             (self.nav_history, "history"),
             (self.nav_settings, "settings"),
             (self.nav_help, "help"),
@@ -207,7 +215,10 @@ class MainWindow(QMainWindow):
 
         self.settings_widget = ProcessingSettingsWidget()
         self.settings_widget.region_requested.connect(self.edit_region)
+        self.engine_settings = EngineSettings(self.settings)
         self._build_home_page()
+        self.translate_page = PdfTranslatePage(self.settings, self.engine_settings)
+        self.page_stack.addWidget(self.translate_page)
         self._build_history_page()
         self._build_settings_page()
         self._build_help_page()
@@ -258,6 +269,13 @@ class MainWindow(QMainWindow):
         empty_layout.setSpacing(24)
         empty_layout.addWidget(page_title("新しい処理"))
         empty_layout.addWidget(subtitle("動画や音声から資料と文字起こしを作成します。"))
+        task_row = QHBoxLayout()
+        task_row.setSpacing(12)
+        self.task_video_button = task_card("file-video", "動画・音声から資料を作る")
+        self.task_translate_button = task_card("translate", "PDFを翻訳（17言語）")
+        task_row.addWidget(self.task_video_button, 1)
+        task_row.addWidget(self.task_translate_button, 1)
+        empty_layout.addLayout(task_row)
 
         self.resume_banner = QFrame()
         self.resume_banner.setObjectName("ResumeBanner")
@@ -693,6 +711,10 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self.settings_widget)
 
+        section_header(layout, "PDF翻訳")
+        self.engine_settings_widget = EngineSettingsWidget(self.engine_settings)
+        layout.addWidget(self.engine_settings_widget)
+
         section_header(layout, "途中保存と再開")
         resume = form_layout()
         self.resume_enabled_check = QCheckBox("完了した処理を保存し、中断後に続きから再開する")
@@ -746,6 +768,15 @@ class MainWindow(QMainWindow):
                     "2. 出力内容を選択",
                     "3. 処理を開始（開始前に自動でチェックします）",
                     "4. 完了後に「スライドを確認・修正」でPDFを仕上げる",
+                ],
+            ),
+            (
+                "PDF翻訳",
+                [
+                    "1. 設定ページの「PDF翻訳」で翻訳エンジンとAPIキーを登録（ローカルLLMはキー不要）",
+                    "2. サイドバーの「PDF翻訳」でPDFをドロップし、意訳・直訳・やさしい日本語から選ぶ",
+                    "3. 日本語PDF（レイアウト保持）と日英対訳PDFが、元のPDFと同じフォルダに保存されます",
+                    "スキャンしたPDFは自動でOCRにかけます。図表・数式・画像はそのまま残ります。",
                 ],
             ),
             (
@@ -850,11 +881,17 @@ class MainWindow(QMainWindow):
         for button, page in [
             (self.nav_home, "home"),
             (self.nav_process, "processing"),
+            (self.nav_translate, "translate"),
             (self.nav_history, "history"),
             (self.nav_settings, "settings"),
             (self.nav_help, "help"),
         ]:
             button.clicked.connect(lambda _checked=False, p=page: self._select_page(p))
+        self.task_video_button.clicked.connect(self.add_files)
+        self.task_translate_button.clicked.connect(lambda: self._select_page("translate"))
+        self.translate_page.open_settings_requested.connect(self._open_translation_settings)
+        self.translate_page.history_entry.connect(self._add_history_entry)
+        self.engine_settings_widget.changed.connect(self.translate_page.refresh_engine)
 
         self.select_video_button.clicked.connect(self.add_files)
         self.select_folder_link.clicked.connect(self.add_folder)
@@ -1425,6 +1462,7 @@ class MainWindow(QMainWindow):
         mapping = {
             "home": self.home_page,
             "processing": self.processing_page,
+            "translate": self.translate_page,
             "history": self.history_page,
             "settings": self.settings_page,
             "help": self.help_page,
@@ -1433,6 +1471,7 @@ class MainWindow(QMainWindow):
         all_buttons = {
             "home": [self.nav_home],
             "processing": [self.nav_process],
+            "translate": [self.nav_translate],
             "history": [self.nav_history],
             "settings": [self.nav_settings],
             "help": [self.nav_help],
@@ -1580,6 +1619,21 @@ class MainWindow(QMainWindow):
             self.history = [item for item in self.history if item.get("path") != entry["path"]]
             self.history.insert(0, entry)
         self.history = self.history[:20]
+
+    def _add_history_entry(self, entry: dict) -> None:
+        self.history = [item for item in self.history if item.get("path") != entry.get("path")]
+        self.history.insert(0, entry)
+        self.history = self.history[:20]
+        self._refresh_recent()
+        self._refresh_history()
+        self._save_settings()
+
+    def _open_translation_settings(self) -> None:
+        self._select_page("settings")
+        self.engine_settings_widget.load()
+        QTimer.singleShot(
+            0, lambda: self.settings_page.ensureWidgetVisible(self.engine_settings_widget, 0, 80)
+        )
 
     def _load_history(self) -> list[dict[str, str]]:
         raw = str(self.settings.value("history", "[]"))
@@ -2160,6 +2214,14 @@ class MainWindow(QMainWindow):
 
     def dropEvent(self, event: QDropEvent) -> None:
         paths = [Path(url.toLocalFile()) for url in event.mimeData().urls() if url.isLocalFile()]
+        pdfs = [path for path in paths if path.suffix.lower() == ".pdf"]
+        if pdfs:
+            # PDFs go to translation; media in the same drop still goes to processing.
+            self._select_page("translate")
+            self.translate_page.set_source(pdfs[0])
+            paths = [path for path in paths if path.suffix.lower() != ".pdf"]
+            if not paths:
+                return
         self.add_paths(paths)
 
     def resizeEvent(self, event) -> None:
@@ -2167,6 +2229,19 @@ class MainWindow(QMainWindow):
         self._update_responsive()
 
     def closeEvent(self, event) -> None:
+        if self.translate_page.busy:
+            answer = QMessageBox.question(
+                self,
+                tr("翻訳中です"),
+                tr("翻訳をキャンセルして終了しますか？翻訳済みの部分は次回再利用されます。"),
+            )
+            if answer != QMessageBox.Yes:
+                event.ignore()
+                return
+            self.translate_page.close_after_cancel = self.close
+            self.translate_page.cancel()
+            event.ignore()
+            return
         if self.worker is not None:
             answer = QMessageBox.question(
                 self,
@@ -2182,6 +2257,10 @@ class MainWindow(QMainWindow):
             return
         self._save_settings()
         self.settings.setValue("window_geometry", self.saveGeometry())
+        self.engine_settings_widget.local_models.shutdown()
+        from movie_slide_notes.pdf_translate.local_llm import stop_server
+
+        stop_server()
         if hasattr(self, "updater") and self.updater.busy:
             self._manual_update_check = False
             self.updater.cancel()
@@ -2195,6 +2274,7 @@ class MainWindow(QMainWindow):
         for button, label in [
             (self.nav_home, "ホーム"),
             (self.nav_process, "処理"),
+            (self.nav_translate, "PDF翻訳"),
             (self.nav_history, "履歴"),
             (self.nav_settings, "設定"),
             (self.nav_help, "ヘルプ"),
@@ -2333,6 +2413,7 @@ def clear_layout(layout) -> None:
         widget = item.widget()
         child_layout = item.layout()
         if widget is not None:
+            widget.hide()  # never shown again while the deferred delete is pending
             widget.deleteLater()
         elif child_layout is not None:
             clear_layout(child_layout)
@@ -2443,6 +2524,18 @@ def icon_path(name: str) -> str:
 
 def icon_pixmap(name: str, size: int):
     return QIcon(icon_path(name)).pixmap(QSize(size, size))
+
+
+def task_card(icon_name: str, text: str) -> QPushButton:
+    button = QPushButton(text)
+    button.setObjectName("TaskCard")
+    button.setIcon(svg_icon(icon_name, 22, "#14a39b"))
+    button.setIconSize(QSize(22, 22))
+    button.setCursor(Qt.PointingHandCursor)
+    button.setAccessibleName(text)
+    button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+    button.setFixedHeight(64)
+    return button
 
 
 def step_card(icon_name: str, number: str, title: str, body: str) -> QFrame:
