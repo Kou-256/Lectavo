@@ -11,5 +11,6 @@ Lectavo server.
 
 Only releases published from the official GitHub repository should be treated
 as official builds. Compare downloaded files with the SHA-256 value attached to
-the release. The current `0.2.1` build is unsigned; Windows SmartScreen may show
-a warning until Authenticode signing is configured.
+the release. Builds from 0.5.0 are self-signed (publisher "Lectavo / Kou Hashizume");
+earlier builds are unsigned. A self-signed certificate is not trusted by
+Windows, so SmartScreen or an unknown-publisher prompt may still appear.

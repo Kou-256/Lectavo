@@ -113,7 +113,7 @@ Lectavoは、講義・プレゼンテーション動画から重複のないス�
 - GPU: 任意。CPUのみでも利用可能
 - デスクトップショートカット: 既定で作成
 
-現在の`0.5.0`配布物は未署名です。Windows SmartScreenが警告する場合があります。ダウンロード後はReleaseに掲載されたSHA-256と照合してください。
+現在の`0.5.0`配布物は自己署名です（発行元「Lectavo / Kou Hashizume」）。信頼された認証局の証明書ではないため、Windows SmartScreenや「発行元を確認できません」の警告が表示される場合があります。ダウンロード後はReleaseに掲載されたSHA-256と照合してください。
 
 ## 使い方
 
@@ -256,7 +256,7 @@ release/
   release-notes.txt
 ```
 
-署名証明書はリポジトリへ保存しないでください。`LECTAVO_SIGN_PFX`、`LECTAVO_SIGN_PASSWORD`などを安全な環境変数またはCI Secretとして設定し、`scripts/sign_release.ps1`を利用します。
+署名証明書はリポジトリへ保存しないでください。`LECTAVO_CERT_SHA1`（証明書ストアの拇印）または`LECTAVO_CERT_PATH`と`LECTAVO_CERT_PASSWORD`を安全な環境変数またはCI Secretとして設定すると、`scripts/sign_release.ps1`が署名します。自己署名証明書は`scripts/new_self_signed_cert.ps1`で作成できます。
 
 ## 既知の制限
 
@@ -264,7 +264,7 @@ release/
 - カメラ映像とスライドが頻繁に入れ替わる動画はしきい値調整が必要です。
 - 見た目が極端に似た連続ページでは、重複しきい値の調整が必要な場合があります。
 - Windows ARM64は未検証です。
-- Authenticode署名とクリーンWindows VMでの最終配布検証は未完了です。
+- 配布物は自己署名です。信頼された認証局による署名と、クリーンなWindows VMでの最終配布検証は未完了です。
 
 検証済み・未確認事項の詳細は[PUBLIC_RELEASE_CHECKLIST.md](PUBLIC_RELEASE_CHECKLIST.md)を参照してください。
 

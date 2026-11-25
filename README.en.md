@@ -127,7 +127,7 @@ Download `Lectavo-setup-0.5.0-x64.exe` from the [latest GitHub Release](https://
 - GPU optional; CPU-only operation is supported
 - Desktop shortcut enabled by default
 
-The current `0.5.0` binary is unsigned, so Windows SmartScreen may display a warning. Compare the download with the SHA-256 value attached to the release.
+The current `0.5.0` binary is self-signed (publisher "Lectavo / Kou Hashizume"). Because the certificate is not from a trusted authority, Windows SmartScreen or an "unknown publisher" prompt may still appear. Compare the download with the SHA-256 value attached to the release.
 
 ## Basic use
 
