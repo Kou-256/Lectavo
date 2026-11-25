@@ -43,7 +43,8 @@ claim of legal compliance or a substitute for professional legal advice.
   Python, FFmpeg, Git, or developer tools.
 - [ ] Add only rights-safe screenshots or demo videos.
 - [ ] Configure Authenticode signing and verify both `Lectavo.exe` and
-  `Lectavo-Setup.exe`; do not describe an unsigned build as signed.
+  `Lectavo-Setup.exe`; do not describe an unsigned build as signed, or a
+  self-signed build as signed by a trusted authority. (0.5.0 is self-signed.)
 - [ ] Replace placeholder release/support URLs only after the public repository exists.
 
 ## Environment-limited checks on 2026-07-15

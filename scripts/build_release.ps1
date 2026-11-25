@@ -219,7 +219,7 @@ Lectavo $Version
 - Reduced the minimum window size and improved compact layouts.
 - PyInstaller onedir output is packaged with Inno Setup.
 - faster-whisper models are not bundled; they are downloaded on first transcription use.
-- This build is unsigned when no code signing certificate is configured.
+- This build is self-signed when LECTAVO_CERT_SHA1 points to a self-signed certificate, and unsigned when no certificate is configured.
 "@
     Set-Content -Path (Join-Path $ReleaseDir "release-notes.txt") -Value $ReleaseNotes -Encoding UTF8
 
