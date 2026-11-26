@@ -30,6 +30,15 @@ BOLD_HINTS = ("bold", "black", "heavy", "semibold", "demi", ",b")
 _WORD = re.compile(r"[^\W\d_]{2,}")
 _CJK = re.compile(r"[぀-ヿ㐀-鿿가-힯]")
 _URL_ONLY = re.compile(r"^\s*(https?://|www\.|doi:|10\.\d{4,}/)\S*\s*$", re.IGNORECASE)
+_URL = re.compile(r"https?://|www\.|doi\.org|\bdoi:", re.IGNORECASE)
+_REF_NUMBER = re.compile(r"^\s*(\[\d{1,3}\]|\(\d{1,3}\)|\d{1,3}\))")
+_INITIAL = re.compile(r"(?<![A-Za-z])[A-Z]\.(?:-[A-Z]\.)?(?=[\s,])")
+_YEAR = re.compile(r"\((?:19|20)\d{2}[a-z]?\)|\b(?:19|20)\d{2}[a-z]?[.;,)]")
+# "Nat. Mater. 2, 180 (2003)": volume, page and year.
+_CITATION = re.compile(r"\b\d{1,4},\s*[A-Z]?\d{1,8}\s*\((?:19|20)\d{2}\)")
+_CAMEL = re.compile(r"[a-z][A-Z]")
+# A figure covering most of the page is a whole page wrapped in a form, not an illustration.
+PAGE_WRAPPER_COVERAGE = 0.6
 
 
 def normalize_pdf(source: Path) -> bytes:
@@ -110,9 +119,30 @@ def should_translate(text: str) -> bool:
     if not words:
         return False
     if len(words) == 1:
-        # A single word only counts as a heading when it is a real word.
-        return len(words[0]) >= 4 and letters / max(1, visible) >= 0.6
+        # A single word only counts as a heading when it is a real word, not an identifier.
+        return (
+            len(words[0]) >= 4 and letters / max(1, visible) >= 0.6 and not _CAMEL.search(stripped)
+        )
     return True
+
+
+def looks_like_reference(text: str) -> bool:
+    """True for bibliography entries, which are left in the original language.
+
+    Entries such as ``12) J. Wang, Y. Yoo, and C. Gao, Science 279, 1712 (1998).``
+    are lists of author initials, journals, volumes and years.
+    """
+    initials = len(_INITIAL.findall(text))
+    years = len(_YEAR.findall(text))
+    numbered = bool(_REF_NUMBER.match(text))
+    if numbered and _URL.search(text):
+        return True
+    words = max(1, len(text.split()))
+    if initials and _CITATION.search(text):
+        return True
+    if years and initials >= 2 and initials / words >= 0.08:
+        return True
+    return numbered and initials >= 3
 
 
 def _font_flags(fontnames: list[str]) -> tuple[bool, bool]:
@@ -184,7 +214,7 @@ def _block_from_lines(index: int, lines: list, page_width: float) -> TextBlock |
     if not chars:
         return None
     text = join_lines([line.get_text() for line in lines])
-    if not should_translate(text):
+    if not should_translate(text) or looks_like_reference(text):
         return None
     sizes = [c.size for c in chars if c.size > 0]
     bold, serif = _font_flags([c.fontname for c in chars])
@@ -206,6 +236,49 @@ def _block_from_lines(index: int, lines: list, page_width: float) -> TextBlock |
     )
 
 
+def _bbox(lines: list) -> tuple[float, float, float, float]:
+    return (
+        min(line.x0 for line in lines),
+        min(line.y0 for line in lines),
+        max(line.x1 for line in lines),
+        max(line.y1 for line in lines),
+    )
+
+
+def merge_contained(boxes: list[list]) -> list[list]:
+    """Fold a text box that lies inside another one back into it, in reading order.
+
+    pdfminer sometimes splits off part of a line (e.g. "time. Furthermore,") into
+    its own box inside a paragraph; translated separately, it would be drawn on top
+    of the paragraph and be missing from it.
+    """
+    merged = [list(lines) for lines in boxes]
+    changed = True
+    while changed:
+        changed = False
+        for i, inner in enumerate(merged):
+            ix0, iy0, ix1, iy1 = _bbox(inner)
+            area = max(1e-6, (ix1 - ix0) * (iy1 - iy0))
+            for j, outer in enumerate(merged):
+                if i == j:
+                    continue
+                ox0, oy0, ox1, oy1 = _bbox(outer)
+                overlap_w = min(ix1, ox1) - max(ix0, ox0)
+                overlap_h = min(iy1, oy1) - max(iy0, oy0)
+                if overlap_w <= 0 or overlap_h <= 0 or (ox1 - ox0) * (oy1 - oy0) < area:
+                    continue
+                if overlap_w * overlap_h / area >= 0.8:
+                    outer.extend(inner)
+                    # Top to bottom, then left to right within a line.
+                    outer.sort(key=lambda line: (-round((line.y0 + line.y1) / 2 / 3), line.x0))
+                    del merged[i]
+                    changed = True
+                    break
+            if changed:
+                break
+    return merged
+
+
 def extract_text_pages(
     pdf_bytes: bytes, page_indexes: list[int]
 ) -> dict[int, tuple[list[TextBlock], int, float]]:
@@ -216,7 +289,10 @@ def extract_text_pages(
     from pdfminer.high_level import extract_pages
     from pdfminer.layout import LAParams, LTChar, LTFigure, LTImage, LTTextBox
 
-    params = LAParams(line_margin=0.5, char_margin=2.0, word_margin=0.1, boxes_flow=0.5)
+    # all_texts also groups text inside forms, for pages that are wrapped in one.
+    params = LAParams(
+        line_margin=0.5, char_margin=2.0, word_margin=0.1, boxes_flow=0.5, all_texts=True
+    )
     result: dict[int, tuple[list[TextBlock], int, float]] = {}
     for index, layout in zip(
         page_indexes,
@@ -235,6 +311,10 @@ def extract_text_pages(
                 image_area += item.width * item.height
                 return
             if isinstance(item, LTFigure):
+                if item.width * item.height >= PAGE_WRAPPER_COVERAGE * page_area:
+                    for child in item:
+                        walk(child, inside_figure)
+                    return
                 if item.width * item.height > 0:
                     has_image = any(isinstance(child, LTImage) for child in item)
                     if has_image:
@@ -248,17 +328,21 @@ def extract_text_pages(
             if isinstance(item, LTTextBox) and not inside_figure:
                 lines = [line for line in item if any(isinstance(c, LTChar) for c in line)]
                 char_count += sum(1 for line in lines for c in line if isinstance(c, LTChar))
-                for group in split_by_size(lines):
-                    block = _block_from_lines(index, group, page_width)
-                    if block is not None:
-                        blocks.append(block)
+                if lines:
+                    boxes.append(lines)
                 return
             if hasattr(item, "__iter__"):
                 for child in item:
                     walk(child, inside_figure)
 
+        boxes: list[list] = []
         for element in layout:
             walk(element)
+        for lines in merge_contained(boxes):
+            for group in split_by_size(lines):
+                block = _block_from_lines(index, group, page_width)
+                if block is not None:
+                    blocks.append(block)
         result[index] = (blocks, char_count, min(1.0, image_area / page_area))
     return result
 

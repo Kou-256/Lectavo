@@ -102,6 +102,7 @@ Each input item is one paragraph, heading, caption or list entry from the same d
 - Keep numbers, units, chemical formulas, math, variable names, citations like [3] or (Smith et al., 2020), URLs and code unchanged.
 - Translate figure and table labels as {labels}, and section headings concisely.
 - Keep proper nouns that are normally left untranslated (software, gene names, etc.) as they are.
+- Keep people's names exactly as spelled in the source (do not transliterate them), and keep dates, IP addresses and article numbers unchanged.
 - Use the same term for the same source term throughout.
 - Output only the translation text for each item, with no notes.
 

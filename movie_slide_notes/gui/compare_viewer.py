@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtGui import QImage, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
+    QAbstractSpinBox,
     QCheckBox,
     QDialog,
     QFrame,
@@ -27,6 +29,8 @@ from movie_slide_notes.gui.icons import icon
 
 ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0]
 PAGE_MARGIN = 24
+# After a page turn by scrolling, wheel events are ignored briefly so one flick turns one page.
+PAGE_TURN_PAUSE = 0.35
 
 
 @dataclass
@@ -116,6 +120,7 @@ class CompareViewer(QDialog):
         self.fit_mode = "width"  # "width", "page" or "" (manual zoom)
         self.zoom = 1.0
         self._syncing = False
+        self._last_turn = 0.0
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 10, 12, 12)
@@ -162,6 +167,10 @@ class CompareViewer(QDialog):
         self.page_spin.setRange(1, max(1, self.pages))
         self.page_spin.setValue(self.index + 1)
         self.page_spin.setAccessibleName(tr("ページ"))
+        # The arrows next to the number duplicated the previous/next buttons.
+        self.page_spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.page_spin.setAlignment(Qt.AlignCenter)
+        self.page_spin.setFixedWidth(64)
         self.page_total = QLabel(f"/ {self.pages}")
         self.next_button = QPushButton()
         self.next_button.setIcon(icon("move-right", 18))
@@ -211,7 +220,8 @@ class CompareViewer(QDialog):
 
     # navigation and zoom ------------------------------------------------------
 
-    def go_to(self, index: int) -> None:
+    def go_to(self, index: int, at_end: bool = False) -> None:
+        """Show page ``index``, scrolled to its top (or to its bottom with ``at_end``)."""
         index = max(0, min(self.pages - 1, index))
         if index == self.index and self.panes[0].image.pixmap() is not None:
             return
@@ -220,8 +230,19 @@ class CompareViewer(QDialog):
         self.page_spin.setValue(index + 1)
         self.page_spin.blockSignals(False)
         self._render()
-        for pane in self.panes:
-            pane.scroll.verticalScrollBar().setValue(0)
+        self._scroll_to(at_end)
+        if at_end:
+            # The scroll range follows the new page size only after the layout runs.
+            QTimer.singleShot(0, lambda: self._scroll_to(True))
+
+    def _scroll_to(self, at_end: bool) -> None:
+        self._syncing = True
+        try:
+            for pane in self.panes:
+                bar = pane.scroll.verticalScrollBar()
+                bar.setValue(bar.maximum() if at_end else 0)
+        finally:
+            self._syncing = False
 
     def next_page(self) -> None:
         self.go_to(self.index + 1)
@@ -303,17 +324,41 @@ class CompareViewer(QDialog):
                     bar.setValue(round(sender.value() / span * bar.maximum()))
         finally:
             self._syncing = False
+        self._last_turn = 0.0
 
     # events -------------------------------------------------------------------
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if event.type() == QEvent.Wheel and event.modifiers() & Qt.ControlModifier:
-            if event.angleDelta().y() > 0:
-                self.zoom_in()
-            else:
-                self.zoom_out()
-            return True
+        if event.type() == QEvent.Wheel:
+            if event.modifiers() & Qt.ControlModifier:
+                if event.angleDelta().y() > 0:
+                    self.zoom_in()
+                else:
+                    self.zoom_out()
+                return True
+            if self._turn_page_by_wheel(watched, event.angleDelta().y()):
+                return True
         return super().eventFilter(watched, event)
+
+    def _turn_page_by_wheel(self, viewport: QObject, delta: int) -> bool:
+        """Scrolling past the bottom of a page shows the next one, past the top the previous."""
+        pane = next((p for p in self.panes if p.scroll.viewport() is viewport), None)
+        if pane is None or delta == 0:
+            return False
+        bar = pane.scroll.verticalScrollBar()
+        down = delta < 0
+        if down and (bar.value() < bar.maximum() or self.index >= self.pages - 1):
+            return False
+        if not down and (bar.value() > bar.minimum() or self.index <= 0):
+            return False
+        now = time.monotonic()
+        if now - self._last_turn >= PAGE_TURN_PAUSE:
+            self._last_turn = now
+            if down:
+                self.next_page()
+            else:
+                self.go_to(self.index - 1, at_end=True)
+        return True
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
