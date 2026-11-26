@@ -2218,7 +2218,7 @@ class MainWindow(QMainWindow):
         if pdfs:
             # PDFs go to translation; media in the same drop still goes to processing.
             self._select_page("translate")
-            self.translate_page.set_source(pdfs[0])
+            self.translate_page.set_sources(pdfs)
             paths = [path for path in paths if path.suffix.lower() != ".pdf"]
             if not paths:
                 return

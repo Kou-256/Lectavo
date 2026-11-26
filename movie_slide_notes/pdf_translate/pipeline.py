@@ -13,6 +13,7 @@ from threading import Event, Lock
 from movie_slide_notes.pdf_translate import layout, ocr, writer
 from movie_slide_notes.pdf_translate.engines import Engine, TranslationError
 from movie_slide_notes.pdf_translate.languages import already_in_target, language
+from movie_slide_notes.pdf_translate.markup import strip_tags
 from movie_slide_notes.pdf_translate.models import (
     PageInfo,
     PdfTranslationOptions,
@@ -126,7 +127,7 @@ def document_context(pages: list[PageInfo]) -> str:
         candidates = sorted(page.blocks, key=lambda b: -b.font_size)
         for block in candidates:
             if 3 <= len(block.text.split()) <= 25:
-                return block.text
+                return strip_tags(block.text)
     return ""
 
 
@@ -211,7 +212,7 @@ def translate_pdf(
         keep = [
             (block, colors)
             for block, colors in zip(page.blocks, background_colors[page.index], strict=True)
-            if not already_in_target(block.text, options.target_lang)
+            if not already_in_target(strip_tags(block.text), options.target_lang)
         ]
         page.blocks = [block for block, _ in keep]
         background_colors[page.index] = [colors for _, colors in keep]

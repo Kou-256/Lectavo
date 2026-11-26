@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
+from movie_slide_notes.pdf_translate.markup import SCRIPT, strip_tags
 from movie_slide_notes.pdf_translate.models import PageInfo, TextBlock
 
 FONTS_DIR = Path(r"C:\Windows\Fonts")
@@ -44,6 +45,13 @@ SCRIPT_FONTS = {
 FALLBACK_CID_FONT = "HeiseiKakuGo-W5"
 
 LEADING = 1.3
+# Sub- and superscripts: size relative to the text, and baseline shift.
+SCRIPT_SCALE = 0.7
+SUPERSCRIPT_RISE = 0.36
+SUBSCRIPT_DROP = 0.14
+# Each tagged span is carried through wrapping as one private-use character.
+_SPAN_BASE = 0xF0000
+MIN_LEADING = 1.12
 MIN_FONT_SIZE = 4.5
 BILINGUAL_GAP = 0.0
 
@@ -128,9 +136,64 @@ def draw_with_fallback(canvas, x: float, y: float, text: str, font: str, size: f
     canvas.setFont(font, size)
 
 
-def wrap_text(text: str, font: str, size: float, width: float) -> list[str]:
-    """Wrap Japanese text to ``width``, keeping Latin words whole and following kinsoku."""
+Spans = dict[str, tuple[str, str]]
+
+
+def encode_scripts(text: str) -> tuple[str, Spans]:
+    """Replace each ``<sub>…</sub>``/``<sup>…</sup>`` with one placeholder character."""
+    spans: Spans = {}
+
+    def replace(match) -> str:
+        char = chr(_SPAN_BASE + len(spans))
+        spans[char] = (match.group(1), match.group(2))
+        return char
+
+    encoded = SCRIPT.sub(replace, text)
+    return strip_tags(encoded), spans  # drop tags the translator left unpaired
+
+
+def text_width(text: str, font: str, size: float, spans: Spans | None = None) -> float:
     from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    if not spans:
+        return stringWidth(text, font, size)
+    width = 0.0
+    plain = ""
+    for char in text:
+        if char in spans:
+            width += stringWidth(spans[char][1], font, size * SCRIPT_SCALE)
+        else:
+            plain += char
+    return width + stringWidth(plain, font, size)
+
+
+def draw_line(canvas, x: float, y: float, line: str, font: str, size: float, spans: Spans) -> None:
+    """Draw one line, with sub- and superscripts smaller and off the baseline."""
+    run = ""
+    for char in line:
+        if char not in spans:
+            run += char
+            continue
+        if run:
+            draw_with_fallback(canvas, x, y, run, font, size)
+            x += text_width(run, font, size)
+            run = ""
+        kind, content = spans[char]
+        small = size * SCRIPT_SCALE
+        shift = size * SUPERSCRIPT_RISE if kind == "sup" else -size * SUBSCRIPT_DROP
+        draw_with_fallback(canvas, x, y + shift, content, font, small)
+        x += text_width(content, font, small)
+    if run:
+        draw_with_fallback(canvas, x, y, run, font, size)
+
+
+def wrap_text(
+    text: str, font: str, size: float, width: float, spans: Spans | None = None
+) -> list[str]:
+    """Wrap Japanese text to ``width``, keeping Latin words whole and following kinsoku."""
+
+    def stringWidth(value: str, font: str, size: float) -> float:  # noqa: N802
+        return text_width(value, font, size, spans)
 
     lines: list[str] = []
     for paragraph in text.split("\n"):
@@ -170,19 +233,30 @@ def wrap_text(text: str, font: str, size: float, width: float) -> list[str]:
 class FittedText:
     lines: list[str]
     size: float
+    leading: float = LEADING
 
 
-def fit_text(text: str, font: str, block: TextBlock) -> FittedText:
-    """Largest size (up to the original) at which ``text`` fits inside ``block``."""
+def fit_text(text: str, font: str, block: TextBlock, spans: Spans | None = None) -> FittedText:
+    """Largest size (up to the original) at which ``text`` fits inside ``block``.
+
+    The text never runs below the block, where it would overlap the next
+    paragraph; line spacing is tightened (down to ``MIN_LEADING``) before the
+    font is made smaller.
+    """
     width = max(4.0, block.width)
-    height = max(block.height, block.font_size)
+    height = max(block.height, block.font_size) + 0.5
     size = max(MIN_FONT_SIZE, min(block.font_size, 40.0))
     while True:
-        lines = wrap_text(text, font, size, width)
-        used = size + (len(lines) - 1) * size * LEADING
-        if used <= height * 1.04 + 0.5 or size <= MIN_FONT_SIZE:
-            return FittedText(lines, size)
-        size = max(MIN_FONT_SIZE, size * 0.94)
+        lines = wrap_text(text, font, size, width, spans)
+        if len(lines) == 1:
+            if size <= height or size <= MIN_FONT_SIZE:
+                return FittedText(lines, size)
+        else:
+            # Room needed: the first line, then one step per further line.
+            leading = (height - size) / ((len(lines) - 1) * size)
+            if leading >= MIN_LEADING or size <= MIN_FONT_SIZE:
+                return FittedText(lines, size, max(MIN_LEADING, min(LEADING, leading)))
+        size = max(MIN_FONT_SIZE, size * 0.95)
 
 
 def build_overlay(
@@ -190,7 +264,6 @@ def build_overlay(
 ) -> bytes:
     """One overlay page per input page: background patches, then Japanese text."""
     from reportlab.lib.colors import Color
-    from reportlab.pdfbase.pdfmetrics import stringWidth
     from reportlab.pdfgen.canvas import Canvas
 
     buffer = io.BytesIO()
@@ -213,18 +286,19 @@ def build_overlay(
             )
         for block, (_background, text_color) in zip(blocks, page_colors, strict=False):
             font = block_font(block, script)
-            fitted = fit_text(block.translated, font, block)
+            text, spans = encode_scripts(block.translated)
+            fitted = fit_text(text, font, block, spans)
             canvas.setFillColor(Color(*text_color))
             canvas.setFont(font, fitted.size)
             baseline = block.y1 - fitted.size * 0.88
             for line in fitted.lines:
                 if block.centered:
-                    line_width = stringWidth(line, font, fitted.size)
+                    line_width = text_width(line, font, fitted.size, spans)
                     x = block.x0 + (block.width - line_width) / 2
                 else:
                     x = block.x0
-                draw_with_fallback(canvas, x, baseline, line, font, fitted.size)
-                baseline -= fitted.size * LEADING
+                draw_line(canvas, x, baseline, line, font, fitted.size, spans)
+                baseline -= fitted.size * fitted.leading
         canvas.showPage()
     canvas.save()
     return buffer.getvalue()

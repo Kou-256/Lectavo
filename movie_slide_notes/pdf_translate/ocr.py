@@ -31,6 +31,9 @@ class OcrLine:
         return self.bottom - self.top
 
 
+_run_lock = Lock()
+
+
 def _get_engine():
     global _engine
     with _engine_lock:
@@ -52,7 +55,9 @@ def recognize_lines(image) -> list[OcrLine]:
     """Text lines in a page image, in pixel coordinates (origin top-left)."""
     import numpy as np
 
-    result = _get_engine()(np.asarray(image))
+    engine = _get_engine()
+    with _run_lock:  # one page at a time, also when PDFs are translated side by side
+        result = engine(np.asarray(image))
     if result is None or result.boxes is None or result.txts is None:
         return []
     lines = []

@@ -2,12 +2,15 @@
 
 Small models in particular read "Eu3+" as "EU" (Europe) or turn "TiO2" into
 words. These tokens are swapped for markers like ⟦0⟧ before translating and
-put back afterwards.
+put back afterwards. Words with sub- or superscripts (``Eu<sub>2</sub>O<sub>3</sub>``,
+citation marks ``<sup>35)</sup>``) are kept the same way, so their tags survive.
 """
 
 from __future__ import annotations
 
 import re
+
+from movie_slide_notes.pdf_translate.markup import SCRIPTED_WORD
 
 _ELEMENT = r"[A-Z][a-z]?"
 # Ions need a charge sign (Eu3+, O2-, Ce³⁺); formulas need at least one count (TiO2, Y3Al5O12).
@@ -24,6 +27,7 @@ def protect(text: str) -> tuple[str, list[str]]:
         tokens.append(match.group(0))
         return f"⟦{len(tokens) - 1}⟧"
 
+    text = SCRIPTED_WORD.sub(replace, text)
     return _TOKEN.sub(replace, text), tokens
 
 
