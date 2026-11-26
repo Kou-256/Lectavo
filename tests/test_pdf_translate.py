@@ -61,7 +61,9 @@ class FakeEngine(Engine):
     def translate(self, texts, style, context="", source="auto", target="ja"):
         self.calls += 1
         self.targets.append(target)
-        return [f"訳{len(text)}：希土類添加蛍光体の発光特性を調べた。" for text in texts]
+        # About as long as a real Japanese translation of the text.
+        sentence = "希土類添加蛍光体の発光特性を調べた。"
+        return [f"訳{len(text)}：" + sentence * max(1, len(text) // 50) for text in texts]
 
 
 class TextRulesTests(unittest.TestCase):

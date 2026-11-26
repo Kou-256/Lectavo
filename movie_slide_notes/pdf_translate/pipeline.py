@@ -102,6 +102,24 @@ def make_batches(blocks: list[TextBlock], batch_chars: int = BATCH_CHARS) -> lis
     return batches
 
 
+def misaligned(sources: list[str], results: list[str]) -> list[int]:
+    """Positions whose answer looks like it belongs to another item of the batch.
+
+    A long paragraph answered by a few characters, or two different sources
+    answered with the same text, means the engine mixed up the items.
+    """
+    suspicious: set[int] = set()
+    seen: dict[str, int] = {}
+    for position, (source, result) in enumerate(zip(sources, results, strict=True)):
+        if len(source) >= 60 and len(result.strip()) < len(source) * 0.12:
+            suspicious.add(position)
+        key = result.strip()
+        if key in seen and sources[seen[key]].strip() != source.strip():
+            suspicious.update((seen[key], position))
+        seen.setdefault(key, position)
+    return sorted(suspicious)
+
+
 def document_context(pages: list[PageInfo]) -> str:
     """The first heading-like block, given to the engine for consistent terminology."""
     for page in pages[:2]:
@@ -207,7 +225,8 @@ def translate_pdf(
         cached = 0
         for block in all_blocks:
             hit = cache.get(cache.key(engine_key, style_key, block.text))
-            if hit:
+            # Answers saved before the misalignment check may belong to another item.
+            if hit and not misaligned([block.text], [hit]):
                 block.translated = hit
                 cached += 1
             else:
@@ -230,13 +249,22 @@ def translate_pdf(
                 texts, saved = map(
                     list, zip(*(protect(block.text) for block in batch), strict=True)
                 )
-            results = engine.translate(
-                texts,
-                options.style,
-                context,
-                source=options.source_lang,
-                target=options.target_lang,
-            )
+
+            def ask(items: list[str]) -> list[str]:
+                return engine.translate(
+                    items,
+                    options.style,
+                    context,
+                    source=options.source_lang,
+                    target=options.target_lang,
+                )
+
+            results = ask(texts)
+            if len(texts) > 1:
+                # Small models sometimes shift answers by one item; ask again one by one.
+                for position in misaligned(texts, results):
+                    check_cancel()
+                    results[position] = ask([texts[position]])[0]
             return [restore(text, tokens) for text, tokens in zip(results, saved, strict=True)]
 
         with ThreadPoolExecutor(

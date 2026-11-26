@@ -64,8 +64,8 @@ CATALOG: list[LocalModel] = [
     LocalModel(
         key="qwen3-4b-2507",
         name="Qwen3 4B Instruct",
-        tier="おすすめ",
-        description="速さと品質のバランスが良く、多言語に強い標準モデル。",
+        tier="バランス",
+        description="速さと品質のバランスが良く、多言語に強いモデル。",
         repo="unsloth/Qwen3-4B-Instruct-2507-GGUF",
         revision="a06e946bb6b655725eafa393f4a9745d460374c9",
         filename="Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
@@ -88,8 +88,8 @@ CATALOG: list[LocalModel] = [
     LocalModel(
         key="gemma-4-12b",
         name="Gemma 4 12B",
-        tier="最高品質",
-        description="専門的な論文向け。GPU（VRAM 8GB以上）か32GBメモリを推奨します。",
+        tier="おすすめ",
+        description="最も正確で自然な訳文。専門的な論文向け。GPU（VRAM 8GB以上）か32GBメモリを推奨します。",
         repo="ggml-org/gemma-4-12B-it-GGUF",
         revision="501d13dba70e3c02b1b12c78fd9e6b08ad413960",
         filename="gemma-4-12B-it-Q4_0.gguf",
@@ -98,7 +98,7 @@ CATALOG: list[LocalModel] = [
         min_ram_gb=24,
     ),
 ]
-DEFAULT_MODEL_KEY = "qwen3-4b-2507"
+DEFAULT_MODEL_KEY = "gemma-4-12b"
 CONTEXT_TOKENS = 8192
 STARTUP_TIMEOUT = 240.0
 
