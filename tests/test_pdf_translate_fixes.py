@@ -196,5 +196,40 @@ class CompareViewerTests(unittest.TestCase):
             viewer.close()
 
 
+class DefaultModelTests(unittest.TestCase):
+    def test_gemma_12b_is_the_default_and_a_downloaded_model_is_used_meanwhile(self) -> None:
+        from unittest.mock import patch
+
+        from PySide6.QtCore import QSettings
+
+        from movie_slide_notes.gui.pdf_translate_page import EngineSettings
+        from movie_slide_notes.pdf_translate import local_llm
+        from movie_slide_notes.pdf_translate.engines import DEFAULT_MODELS
+
+        self.assertEqual(local_llm.DEFAULT_MODEL_KEY, "gemma-4-12b")
+        self.assertEqual(DEFAULT_MODELS["builtin"], "gemma-4-12b")
+        self.assertEqual(local_llm.model_by_key("gemma-4-12b").tier, "おすすめ")
+
+        with tempfile.TemporaryDirectory() as folder:
+            settings = QSettings(str(Path(folder) / "s.ini"), QSettings.IniFormat)
+            engine_settings = EngineSettings(settings)
+
+            def installed(*keys):
+                return patch.object(
+                    local_llm, "is_installed", side_effect=lambda model: model.key in keys
+                )
+
+            with installed():
+                self.assertEqual(engine_settings.local_model_key, "gemma-4-12b")
+            with installed("qwen3-4b-2507"):
+                self.assertEqual(engine_settings.local_model_key, "qwen3-4b-2507")
+            with installed("qwen3-4b-2507", "gemma-4-12b"):
+                self.assertEqual(engine_settings.local_model_key, "gemma-4-12b")
+            engine_settings.set_local_model("gemma-4-e4b")
+            with installed("qwen3-4b-2507", "gemma-4-12b"):
+                self.assertEqual(engine_settings.local_model_key, "gemma-4-e4b")
+            del settings
+
+
 if __name__ == "__main__":
     unittest.main()

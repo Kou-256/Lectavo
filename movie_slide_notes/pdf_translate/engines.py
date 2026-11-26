@@ -21,7 +21,7 @@ PROVIDERS: dict[str, str] = {
 DEFAULT_PROVIDER = "builtin"
 
 DEFAULT_MODELS: dict[str, str] = {
-    "builtin": "qwen3-4b-2507",
+    "builtin": "gemma-4-12b",
     "claude": "claude-opus-5-5",
     "openai": "gpt-5-mini",
     "gemini": "gemini-2.5-flash",

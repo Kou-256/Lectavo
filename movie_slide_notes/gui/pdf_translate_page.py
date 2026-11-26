@@ -100,7 +100,14 @@ class EngineSettings:
 
     @property
     def local_model_key(self) -> str:
-        return local_llm.model_by_key(self.model("builtin")).key
+        """The chosen model; without a choice, the default or else a model already downloaded."""
+        if self.settings.contains("translate/model_builtin"):
+            return local_llm.model_by_key(self.model("builtin")).key
+        default = local_llm.model_by_key(local_llm.DEFAULT_MODEL_KEY)
+        if local_llm.is_installed(default):
+            return default.key
+        installed = next((m for m in local_llm.CATALOG if local_llm.is_installed(m)), None)
+        return (installed or default).key
 
     def set_local_model(self, key: str) -> None:
         self.settings.setValue("translate/model_builtin", key)
