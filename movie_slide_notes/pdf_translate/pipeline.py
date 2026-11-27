@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 import sqlite3
 from collections.abc import Callable
@@ -11,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Event, Lock
 
-from movie_slide_notes.pdf_translate import layout, ocr, writer
+from movie_slide_notes.pdf_translate import edits, layout, ocr
 from movie_slide_notes.pdf_translate.engines import Engine, TranslationError
 from movie_slide_notes.pdf_translate.languages import already_in_target, language
 from movie_slide_notes.pdf_translate.markup import strip_tags
@@ -180,6 +181,7 @@ def translate_pdf(
     log: Callable[[str], None] | None = None,
     cancel_event: Event | None = None,
     cache_path: Path | None = None,
+    edit_store: bool = False,
 ) -> PdfTranslationResult:
     def report(stage: str, fraction: float, message: str) -> None:
         if progress is not None:
@@ -347,9 +349,19 @@ def translate_pdf(
     # 3. Write.
     check_cancel()
     report("write", 0.92, "PDFを書き出しています")
-    overlay = writer.build_overlay(pages, background_colors, language(options.target_lang).script)
+    document = edits.from_translation(
+        pages, background_colors, language(options.target_lang).script, source=str(source)
+    )
     japanese, bilingual = output_paths(source, output_dir, options)
-    writer.write_outputs(normalized, overlay, indexes, japanese, bilingual)
+    document.japanese = str(japanese) if japanese else ""
+    document.bilingual = str(bilingual) if bilingual else ""
+    edits.write(document, normalized)
+    if edit_store:
+        # Kept so the translated PDF can be edited later; never fails the translation.
+        try:
+            edits.store(document, normalized)
+        except Exception:
+            logging.getLogger("lectavo").exception("Could not keep the edit data")
     report("done", 1.0, "完了しました")
     say("翻訳PDFを保存しました")
     return PdfTranslationResult(

@@ -1,4 +1,4 @@
-Lectavo 0.5.3 uses PyAV 18.0.0 binary wheels on Windows x64.
+Lectavo 0.5.4 uses PyAV 18.0.0 binary wheels on Windows x64.
 
 The installed wheel reports dynamically linked FFmpeg libraries:
 

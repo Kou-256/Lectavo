@@ -170,6 +170,7 @@ try {
     $ReleaseNotes = @"
 Lectavo $Version
 
+- 0.5.4: Edit translated PDFs (text, figures, images, erasing); select and copy text across pages in the comparison view.
 - 0.5.3: PDF list with add/remove and preview; headings split from paragraphs; dropped paragraphs retranslated.
 - 0.5.2: Parallel PDF translation; equations kept; subscripts and superscripts kept; no overlapping text; continuous scrolling in the comparison view; installer checkbox fixed.
 - 0.5.1: Cover pages translated, reference lists kept, shifted answers retried; Gemma 4 12B default; scroll to turn pages; shortcut boxes checked on updates.
