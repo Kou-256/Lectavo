@@ -1,0 +1,181 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" width="960" height="520" role="img" aria-labelledby="t d">
+  <title id="t">LectavoのPDF翻訳のしくみ</title>
+  <desc id="d">英語の論文ページで、文字のかたまりを読み取り、化学式や記号を守り、段落ごとに日本語へ訳して、元の枠に書き戻す4つの手順を繰り返し表示するアニメーション。</desc>
+  <style>
+    text { font-family: "Yu Gothic UI", "Hiragino Sans", "Noto Sans JP", "Meiryo", sans-serif; }
+    .en { font-family: "Times New Roman", Times, serif; }
+    .sans { font-family: Arial, Helvetica, sans-serif; }
+    .bg { fill: #0b1012; }
+    .panel { fill: #111a1d; stroke: rgba(222,240,238,.10); }
+    .paper { fill: #fbfaf6; }
+    .ink { fill: #1d2422; }
+    .step-title { fill: #edf3f2; font-size: 19px; font-weight: 700; }
+    .step-text { fill: #83938f; font-size: 13px; }
+    .num { fill: #0b1012; stroke: rgba(222,240,238,.25); }
+    .num-text { fill: #a9b8b7; font-size: 12px; font-weight: 700; text-anchor: middle; }
+    .hl { fill: #172226; opacity: 0; }
+    .dot { fill: #19b4a9; opacity: 0; }
+    .status { fill: #3fd6cb; font-size: 14px; font-weight: 700; opacity: 0; }
+    .outline { fill: none; stroke: #19b4a9; stroke-width: 1.5; stroke-dasharray: 5 4; opacity: 0; }
+    .keepline { fill: none; stroke: #3a4a4c; stroke-width: 1.5; opacity: 0; }
+    .tag { opacity: 0; }
+    .term { fill: #f4b94e; opacity: 0; }
+    .ja { opacity: 0; }
+    .en-g { opacity: 1; }
+    .badge { opacity: 0; }
+
+    /* 12 s loop: read 0-3, protect 3-6, translate 6-9, write back 9-12 */
+    .s0 { animation: on0 12s infinite; }
+    .s1 { animation: on1 12s infinite; }
+    .s2 { animation: on2 12s infinite; }
+    .s3 { animation: on3 12s infinite; }
+    .outline { animation: outline 12s infinite; }
+    .keepline, .tag { animation: keep 12s infinite; }
+    .term { animation: term 12s infinite; }
+    .en-g { animation: en 12s infinite; }
+    .ja { animation: ja 12s infinite; }
+    .badge { animation: badge 12s infinite; }
+    .b1 { animation-delay: 0s; } .b2 { animation-delay: .25s; } .b3 { animation-delay: .5s; } .b4 { animation-delay: .75s; } .b5 { animation-delay: 1s; }
+
+    @keyframes on0 { 0%, 24% { opacity: 1 } 25%, 100% { opacity: 0 } }
+    @keyframes on1 { 0%, 24% { opacity: 0 } 25%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+    @keyframes on2 { 0%, 49% { opacity: 0 } 50%, 74% { opacity: 1 } 75%, 100% { opacity: 0 } }
+    @keyframes on3 { 0%, 74% { opacity: 0 } 75%, 99% { opacity: 1 } 100% { opacity: 0 } }
+    @keyframes outline { 0% { opacity: 0 } 4%, 24% { opacity: 1 } 30%, 60% { opacity: .35 } 70%, 100% { opacity: 0 } }
+    @keyframes keep { 0% { opacity: 0 } 5%, 72% { opacity: 1 } 78%, 100% { opacity: 0 } }
+    @keyframes term { 0%, 26% { opacity: 0 } 30%, 52% { opacity: .55 } 58%, 100% { opacity: 0 } }
+    @keyframes en { 0%, 50% { opacity: 1 } 56%, 97% { opacity: 0 } 100% { opacity: 1 } }
+    @keyframes ja { 0%, 52% { opacity: 0 } 58%, 97% { opacity: 1 } 100% { opacity: 0 } }
+    @keyframes badge { 0%, 78% { opacity: 0 } 82%, 97% { opacity: 1 } 100% { opacity: 0 } }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; }
+      .s3, .ja, .badge { opacity: 1; }
+      .en-g { opacity: 0; }
+    }
+  </style>
+
+  <rect class="bg" width="960" height="520" rx="18"/>
+
+  <!-- steps -->
+  <g transform="translate(36 70)">
+    <g>
+      <rect class="hl s0" x="-12" y="-28" width="300" height="86" rx="12"/>
+      <circle class="num" cx="10" cy="-6" r="12"/><circle class="dot s0" cx="10" cy="-6" r="12"/>
+      <text class="num-text" x="10" y="-2">1</text>
+      <text class="step-title" x="34" y="0">読み取る</text>
+      <text class="step-text" x="34" y="24">文字のかたまりを見つけ、図・数式は</text>
+      <text class="step-text" x="34" y="43">訳さない場所として分けます</text>
+    </g>
+    <g transform="translate(0 100)">
+      <rect class="hl s1" x="-12" y="-28" width="300" height="86" rx="12"/>
+      <circle class="num" cx="10" cy="-6" r="12"/><circle class="dot s1" cx="10" cy="-6" r="12"/>
+      <text class="num-text" x="10" y="-2">2</text>
+      <text class="step-title" x="34" y="0">守る</text>
+      <text class="step-text" x="34" y="24">化学式・記号・引用番号に目印を付け、</text>
+      <text class="step-text" x="34" y="43">翻訳で崩れないようにします</text>
+    </g>
+    <g transform="translate(0 200)">
+      <rect class="hl s2" x="-12" y="-28" width="300" height="86" rx="12"/>
+      <circle class="num" cx="10" cy="-6" r="12"/><circle class="dot s2" cx="10" cy="-6" r="12"/>
+      <text class="num-text" x="10" y="-2">3</text>
+      <text class="step-title" x="34" y="0">訳す</text>
+      <text class="step-text" x="34" y="24">段落ごとに翻訳します。標準は</text>
+      <text class="step-text" x="34" y="43">PCの中で動くLLMです</text>
+    </g>
+    <g transform="translate(0 300)">
+      <rect class="hl s3" x="-12" y="-28" width="300" height="86" rx="12"/>
+      <circle class="num" cx="10" cy="-6" r="12"/><circle class="dot s3" cx="10" cy="-6" r="12"/>
+      <text class="num-text" x="10" y="-2">4</text>
+      <text class="step-title" x="34" y="0">書き戻す</text>
+      <text class="step-text" x="34" y="24">訳文を元の枠に収め、翻訳PDFと</text>
+      <text class="step-text" x="34" y="43">対訳PDFを保存します</text>
+    </g>
+  </g>
+
+  <!-- stage -->
+  <rect class="panel" x="344" y="24" width="592" height="472" rx="16"/>
+  <text class="status s0" x="368" y="56">文字のかたまりと、訳さない場所を見つけています</text>
+  <text class="status s1" x="368" y="56">化学式・記号・引用番号に目印を付けています</text>
+  <text class="status s2" x="368" y="56">段落ごとに日本語へ翻訳しています</text>
+  <text class="status s3" x="368" y="56">訳文を元の枠に書き戻しました</text>
+
+  <g transform="translate(368 72)">
+    <rect class="paper" width="544" height="400" rx="4"/>
+    <text class="ink sans" x="18" y="22" font-size="9">Sample J. Lect. Mater. 3, 101 (2026)</text>
+    <text class="ink" x="526" y="22" font-size="9" text-anchor="end">見本</text>
+    <rect class="ink" x="18" y="28" width="508" height="0.8"/>
+
+    <!-- title -->
+    <rect class="outline b1" x="14" y="38" width="516" height="34" rx="3"/>
+    <g class="en-g b1"><text class="ink sans" x="272" y="60" font-size="13.5" font-weight="700" text-anchor="middle">Finding the brightest composition of a phosphor film</text></g>
+    <g class="ja b1"><text class="ink" x="272" y="61" font-size="15" font-weight="700" text-anchor="middle">少ない測定で、蛍光体膜の最も明るい組成を見つける</text></g>
+
+    <!-- left column paragraph -->
+    <rect class="outline b2" x="14" y="84" width="252" height="88" rx="3"/>
+    <rect class="term" x="147" y="92" width="28" height="16" rx="3"/>
+    <rect class="term" x="69" y="112" width="25" height="16" rx="3"/>
+    <rect class="term" x="126" y="112" width="21" height="16" rx="3"/>
+    <g class="en-g b2">
+      <text class="ink en" x="20" y="104" font-size="12"><tspan font-weight="700">1. Introduction</tspan> Eu-doped Y<tspan font-size="8" dy="3">2</tspan><tspan dy="-3">O</tspan><tspan font-size="8" dy="3">3</tspan><tspan dy="-3"> is a red</tspan></text>
+      <text class="ink en" x="20" y="124" font-size="12">phosphor; Eu<tspan font-size="8" dy="-5">3+</tspan><tspan dy="5"> replaces Y</tspan><tspan font-size="8" dy="-5">3+</tspan><tspan dy="5"> in the crystal.</tspan></text>
+      <text class="ink en" x="20" y="144" font-size="12">Measuring every point of a film</text>
+      <text class="ink en" x="20" y="164" font-size="12">takes hours.</text>
+    </g>
+    <g class="ja b2">
+      <text class="ink" x="20" y="104" font-size="12"><tspan font-weight="700">1. はじめに</tspan> Euを添加したY<tspan font-size="8" dy="3">2</tspan><tspan dy="-3">O</tspan><tspan font-size="8" dy="3">3</tspan><tspan dy="-3">は赤色の</tspan></text>
+      <text class="ink" x="20" y="124" font-size="12">蛍光体で、結晶中のY<tspan font-size="8" dy="-5">3+</tspan><tspan dy="5">をEu</tspan><tspan font-size="8" dy="-5">3+</tspan><tspan dy="5">が置き換える。</tspan></text>
+      <text class="ink" x="20" y="144" font-size="12">膜のすべての点を測るには何時間も</text>
+      <text class="ink" x="20" y="164" font-size="12">かかる。</text>
+    </g>
+
+    <!-- equation (kept) -->
+    <rect class="keepline" x="14" y="184" width="252" height="30" rx="3"/>
+    <g class="tag"><rect x="12" y="176" width="56" height="16" rx="8" fill="#3a4a4c"/><text x="40" y="188" font-size="10" fill="#fff" text-anchor="middle" font-weight="700">そのまま</text></g>
+    <text class="ink en" x="60" y="204" font-size="13" font-style="italic">UCB(x) = μ(x) + κσ(x)</text>
+    <text class="ink en" x="258" y="204" font-size="12" text-anchor="end">(1)</text>
+
+    <!-- left column second paragraph -->
+    <rect class="outline b3" x="14" y="226" width="252" height="68" rx="3"/>
+    <rect class="term" x="44" y="234" width="30" height="16" rx="3"/>
+    <g class="en-g b3">
+      <text class="ink en" x="20" y="246" font-size="12">Here μ(x) is the predicted mean and</text>
+      <text class="ink en" x="20" y="266" font-size="12">σ(x) the standard deviation of the</text>
+      <text class="ink en" x="20" y="286" font-size="12">emission.</text>
+    </g>
+    <g class="ja b3">
+      <text class="ink" x="20" y="246" font-size="12">ここでμ(x)は予測の平均、σ(x)は</text>
+      <text class="ink" x="20" y="266" font-size="12">発光の標準偏差である。</text>
+    </g>
+
+    <!-- figure (kept) -->
+    <rect class="keepline" x="282" y="84" width="248" height="150" rx="3"/>
+    <g class="tag"><rect x="474" y="76" width="56" height="16" rx="8" fill="#3a4a4c"/><text x="502" y="88" font-size="10" fill="#fff" text-anchor="middle" font-weight="700">そのまま</text></g>
+    <path d="M300 96v116h220" fill="none" stroke="#1d2422"/>
+    <path d="M300 204 C 340 198, 370 120, 404 108 S 470 180, 520 200" fill="none" stroke="#2155b3" stroke-width="2"/>
+    <g fill="#2155b3"><circle cx="300" cy="204" r="2.6"/><circle cx="340" cy="190" r="2.6"/><circle cx="372" cy="132" r="2.6"/><circle cx="404" cy="108" r="2.6"/><circle cx="436" cy="126" r="2.6"/><circle cx="470" cy="168" r="2.6"/><circle cx="520" cy="200" r="2.6"/></g>
+    <text class="ink sans" x="410" y="228" font-size="9" text-anchor="middle">Eu content (%)</text>
+
+    <!-- caption and results -->
+    <rect class="outline b4" x="282" y="244" width="248" height="22" rx="3"/>
+    <g class="en-g b4"><text class="ink sans" x="288" y="259" font-size="10.5">Fig. 1. Emission against the Eu content.</text></g>
+    <g class="ja b4"><text class="ink" x="288" y="259" font-size="11">図1. Eu含有量に対する発光強度。</text></g>
+    <rect class="outline b5" x="282" y="276" width="248" height="88" rx="3"/>
+    <g class="en-g b5">
+      <text class="ink en" x="288" y="296" font-size="12"><tspan font-weight="700">3. Results</tspan> The emission reached its</text>
+      <text class="ink en" x="288" y="316" font-size="12">maximum near 12%. Six measurements</text>
+      <text class="ink en" x="288" y="336" font-size="12">were enough, while a full map needed</text>
+      <text class="ink en" x="288" y="356" font-size="12">eighty.</text>
+    </g>
+    <g class="ja b5">
+      <text class="ink" x="288" y="296" font-size="12"><tspan font-weight="700">3. 結果</tspan> 発光は12%付近で最大に</text>
+      <text class="ink" x="288" y="316" font-size="12">なった。全点の測定には80回必要</text>
+      <text class="ink" x="288" y="336" font-size="12">だったが、6回の測定で十分だった。</text>
+    </g>
+  </g>
+
+  <g class="badge">
+    <rect x="676" y="452" width="236" height="30" rx="15" fill="#19b4a9"/>
+    <text x="794" y="472" font-size="13" font-weight="700" fill="#032220" text-anchor="middle">翻訳PDF・対訳PDFを保存しました</text>
+  </g>
+</svg>

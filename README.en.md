@@ -1,126 +1,50 @@
 <p align="center">
-  <img src="assets/app_icon.png" alt="Lectavo icon" width="128" height="128" />
+  <img src="assets/app_icon.png" alt="Lectavo icon" width="112" height="112" />
 </p>
 
 <h1 align="center">Lectavo</h1>
 
-<p align="center">Turn lecture videos into slide PDFs, transcripts, and lecture notes. A free Windows desktop app.</p>
+<p align="center"><strong>Lecture videos and English papers, turned into material you can read.</strong><br />Slide PDFs, transcripts and lecture notes from videos; PDFs translated with their figures and equations kept in place.<br />A free Windows app that runs entirely on your PC.</p>
 
-<p align="center"><a href="https://lectavo.vercel.app"><strong>Website</strong></a> ・ <a href="https://github.com/Kou-256/Lectavo/releases/latest"><strong>Download latest release</strong></a> ・ <a href="README.md">日本語</a> ・ English</p>
+<p align="center">
+  <a href="https://github.com/Kou-256/Lectavo/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Kou-256/Lectavo?color=19b4a9&label=release" /></a>
+  <img alt="Windows 10 / 11" src="https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-0b1012" />
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-0b1012" /></a>
+</p>
 
-## New in 0.5.4
-
-- **Edit translated PDFs**: from the done screen or the comparison view, rewrite, move and resize translations; cut out, move, resize, delete or replace figures; add text and images; and erase areas. Saving writes the translated and bilingual PDFs again.
-- **Select and copy text in the comparison view**: drag to select and press Ctrl+C. Selections can span pages and follow the reading order of two-column pages; the original text hidden under a translation is not selected.
-- Download `Lectavo-setup-0.5.4-x64.exe`.
-
-## New in 0.5.3
-
-- **PDF list and preview**: the PDFs to translate are listed as with videos. Add or remove PDFs, and preview the pages of the one you click.
-- **No more missing paragraphs**: headings at the top or in the middle of a paragraph are translated separately, and a paragraph the engine drops is translated again automatically.
-- Fixed an unrelated heading (such as "2. Experimental methods") being added to the start of paragraphs.
-
-## New in 0.5.2
-
-- **Translate several PDFs at once**: pick multiple PDFs and translate them in parallel, as with video analysis.
-- **Equations are kept as is**: formulas are left untranslated so the layout stays intact.
-- **Subscripts and superscripts are kept**: Eu<sub>2</sub>O<sub>3</sub>, Eu<sup>3+</sup>, μ(x), and citation marks are drawn small and raised or lowered in the translation.
-- Fixed translated text overlapping the next paragraph.
-- **Comparison view**: all pages scroll continuously and smoothly; with "Sync scrolling" off, each side scrolls on its own.
-- Fixed a clipped checkbox on the installer's finish page.
-
-## New in 0.5.1
-
-- **More accurate PDF translation**: pages embedded as a single graphic, such as journal cover pages, are now translated. Reference lists stay in the original language so the layout is kept.
-- When a translation lands on the wrong paragraph, that paragraph is translated again automatically. Personal names and dates are kept as written.
-- **Gemma 4 12B is the default built-in model**: until it is downloaded, a model already on your PC is used.
-- **Comparison view**: scrolling past the end of a page moves to the next (or previous) page; the page number box no longer has up/down arrows.
-- The installer's desktop and Start Menu shortcut boxes are checked on every update.
-
-## New in 0.5.0
-
-- **PDF translation**: translate PDFs while keeping figures, equations, and columns in place. Save the translated PDF and a bilingual PDF with the original and the translation side by side.
-- **17 languages**: Japanese, English, Chinese (Simplified and Traditional), Korean, Spanish, French, German, and more. The source language can be detected automatically.
-- **Three styles**: natural, literal, and plain language (やさしい日本語 for Japanese).
-- **OCR for scans**: pages without a text layer are read with the bundled OCR first (Japanese, English, Chinese).
-- **Built-in local LLM (default)**: download a model (Gemma 4 / Qwen3, 2.5–7.2 GB) in Settings and translate offline, for free, on your PC, using the GPU when available. Claude, OpenAI, Gemini, DeepL, and Ollama / LM Studio are also available.
-- **Compare full screen**: view the original and the translation side by side with zoom, synchronized scrolling, and full screen.
-- A new splash screen and Home screen.
-
-## New in 0.4.5
-
-- **Startup feels faster**: a small splash appears right after launch. In our measurements the time from clicking to seeing something dropped from about 1.2 s to about 0.6 s (it varies by PC).
-- Less work at startup when the UI is Japanese, and the settings screen does less when it first loads.
-- **Installer checkboxes**: fixed the clipped checkboxes on the "Select Additional Tasks" page.
-
-## New in 0.4.4
-
-- **Save next to the input** (on by default): results go into the input video's own folder, beside each video for per-video output or beside the first video for combined output. Turn it off to pick a folder as before.
-- Settings and the Process screen line every field up in one label and field column, including "Select detection area visually".
-- Expanding "スライド検出の詳細" or "開発者向け" no longer flickers; sections open and close smoothly.
-
-## New in 0.4.3
-
-- **Frame stepping in the crop dialog**: new −1s, −1 frame, +1 frame, and +1s buttons. Use ←/→ to move one frame and Shift+←/→ to move one second.
-- The time is shown to a hundredth of a second with the frame number, and the exact frame is loaded, so change points can be placed right where the layout switches.
-
-![Frame stepping in the crop dialog](docs/images/lectavo-region.png)
-
-## New in 0.4.2
-
-- **Crop by time**: when the screen layout changes mid-video, press "Change crop from this time" in the crop dialog to use a different crop from that point on. Timelines are saved per video; other videos use the shared crop.
-- **No page numbers**: turn this on in Settings or the crop dialog for slides without page numbers, so page-number changes don't count as new slides.
-- The crop dialog can be maximized.
-- Combined output goes into one folder per run, named after the output name, with the PDF, TXT, SRT, MD, and slide images inside.
-- The installer no longer shows an image in the top-right corner.
-
-## New in 0.4.1
-
-- The installer shows Lectavo artwork instead of Inno Setup's default box-and-disc images.
-- The sidebar shows the app icon, and the active item's icon is highlighted.
-- Input files on the Process screen are fixed-height rows with a type icon, an elided name, and a colored status.
-- Thinner separators, aligned settings labels, and chevron icons for expandable sections.
-
-## New in 0.4.0
-
-- **Checkpoints and resume**: completed slide analysis and transcripts are saved. After the app closes, an error, or a cancellation, use Resume on Home or "Resume from where it stopped" on the error screen to run only the remaining work. A failed transcription is retried without repeating slide analysis. Saved data can be reviewed and deleted in Settings; data unused for 14 days is removed automatically.
-- **Pre-run check**: before starting, Lectavo checks input files, audio and video tracks, free space in the output and temporary folders, whether the transcription model is ready, and GPU availability. A clean check starts immediately; otherwise the notes are shown first.
-- **Review slides**: after processing, review the extracted slides, remove unwanted pages, drag to reorder, and add missed scenes from the video. "Finalize PDF" rebuilds the PDF and lecture notes; removed images go to the Recycle Bin.
-- Videos without an audio track now skip transcription with a warning instead of failing.
-- Home shows a four-step getting-started guide with new icons.
-- The legacy `Lectavo-Setup.exe` asset remains as a compatibility alias for older updaters.
-
-![Slide review screen](docs/images/lectavo-review.png)
-
-## New in 0.3.1
-
-- Fixed collapsed hero text on 4K displays.
-- Separate Home and Process screens, with a resizable left file-tab list. Ctrl/Shift select multiple files; selected files can be removed together. Processing settings apply to the entire batch.
-- Distinguish silent audio, no detected speech, and model-loading errors. Unreadable models are repaired into regular local files or downloaded again without deleting the original cache.
-- All-failed audio batches no longer generate misleading empty notes.
-- Download `Lectavo-setup-0.3.1-x64.exe`. The legacy `Lectavo-Setup.exe` asset remains as a compatibility alias for older updaters.
-
-
-## New in 0.3.0
-
-- Transcribe MP3, M4A, and WAV into TXT, SRT, and Markdown. Mix video and audio inputs, or process audio alone without slide detection. Combined SRT offsets include the complete audio duration, including silence.
-- Select the slide crop and page-number area directly on a video preview. Seek to another frame, drag rectangles, or enter normalized coordinates. The green region determines the saved image; the yellow region is relative to it. Restore automatic detection at any time. A region applies to all selected videos, so process different layouts separately.
-- Check for stable GitHub releases in the background. Download only after approval, validate the SHA-256 and size, then ask again before starting the installer. Cancel downloads or disable startup checks in Settings. Installation waits for active processing to finish. Versions 0.2.x require one manual upgrade to enable future in-app update checks.
-- Start faster by deferring scientific libraries and GPU checks. Repeated launches activate the existing window. SVG icons identify navigation items.
-
-![Visual slide crop](docs/images/lectavo-region.png)
-
-Settings dropdowns and numeric inputs ignore mouse-wheel value changes, preventing accidental edits while scrolling. Use clicks, keyboard controls, or direct numeric entry to change settings.
-
-Scrolling also leaves keyboard focus unchanged. Under **File names**, choose original names, the common part of video names, or a custom name, then optionally append a date or timestamp. A preview shows the resulting PDF and transcript names. The same base name applies to PDF, TXT, SRT, and Markdown; combined images and Markdown links stay aligned. Per-video custom names retain the source name for distinction. Naming preferences are saved. To keep separate runs, append a timestamp; reusing a name updates the existing outputs.
-
-CLI examples: `--name-mode common --name-date datetime` or `--name-mode custom --output-name "Lecture notes"`.
-
-GUI and CLI default to the common video name with a timestamp. The old GUI defaults are migrated once; subsequent choices are preserved. Use `--name-mode original --name-date none` for legacy CLI filenames.
-
-Lectavo is a Windows desktop application that turns lecture and presentation videos into deduplicated slide PDFs, timestamped transcripts, SRT subtitles, and slide-aligned Markdown lecture notes.
+<p align="center"><a href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.5.4-x64.exe"><strong>⬇ Download for Windows (0.5.4)</strong></a> ・ <a href="https://lectavo.vercel.app">Website (Japanese)</a> ・ <a href="README.md">日本語</a> ・ English</p>
 
 ![Lectavo home screen](docs/images/lectavo-home.png)
+
+## What it does
+
+| From lecture videos | From PDFs |
+| --- | --- |
+| A deduplicated slide PDF of every slide change | A translated PDF in 17 languages, with figures, equations and columns kept |
+| A timestamped transcript (TXT and SRT) | A bilingual PDF with the original and the translation side by side |
+| Markdown lecture notes pairing each slide with what was said | Select and copy text in the comparison view, and edit the translated PDF |
+
+No account, Python or API key needed. Files never leave your PC (unless you choose an external AI service for PDF translation, which then receives the text).
+
+## How PDF translation works
+
+Only the text is translated and written back onto the original page, in four steps:
+
+<p align="center"><img src="assets/readme/pdf-translate.svg" alt="Animation of the four steps of PDF translation: read, protect, translate, write back" width="860" /></p>
+
+1. **Read** — find the blocks of text, and set figures, equations and references aside to keep as they are.
+2. **Protect** — mark chemical formulas such as Eu<sub>2</sub>O<sub>3</sub>, symbols such as μ(x), and citation marks so translation cannot break them.
+3. **Translate** — paragraph by paragraph, by default with an LLM running on your PC (Gemma 4 / Qwen3); Claude, OpenAI, Gemini and DeepL are also available.
+4. **Write back** — fit the translation into the original box, drawing subscripts and superscripts small and shifted, and save the translated and bilingual PDFs.
+
+![Original and translated PDF side by side](docs/images/translate-compare.png)
+
+| Select and copy | Edit the translated PDF |
+| --- | --- |
+| ![Selecting translated text](docs/images/translate-select.png) | ![Editing the translated PDF](docs/images/translate-edit.png) |
+| Selections span pages and follow the reading order of two-column pages. | Rewrite and move translations; cut out, move or replace figures; add text and images. |
+
+<sub>The paper in these screens is sample text written for Lectavo (`scripts/generate_translate_sample.py`).</sub>
 
 ## Highlights
 
@@ -249,6 +173,122 @@ The release workflow creates `Lectavo-Setup.exe`, a portable ZIP, checksums, a v
 ## Contributing and security
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidance and [SECURITY.md](SECURITY.md) for vulnerability reports.
+
+## Changelog
+
+### New in 0.5.4
+
+- **Edit translated PDFs**: from the done screen or the comparison view, rewrite, move and resize translations; cut out, move, resize, delete or replace figures; add text and images; and erase areas. Saving writes the translated and bilingual PDFs again.
+- **Select and copy text in the comparison view**: drag to select and press Ctrl+C. Selections can span pages and follow the reading order of two-column pages; the original text hidden under a translation is not selected.
+- Download `Lectavo-setup-0.5.4-x64.exe`.
+
+<details>
+<summary>Earlier versions</summary>
+
+### New in 0.5.3
+
+- **PDF list and preview**: the PDFs to translate are listed as with videos. Add or remove PDFs, and preview the pages of the one you click.
+- **No more missing paragraphs**: headings at the top or in the middle of a paragraph are translated separately, and a paragraph the engine drops is translated again automatically.
+- Fixed an unrelated heading (such as "2. Experimental methods") being added to the start of paragraphs.
+
+### New in 0.5.2
+
+- **Translate several PDFs at once**: pick multiple PDFs and translate them in parallel, as with video analysis.
+- **Equations are kept as is**: formulas are left untranslated so the layout stays intact.
+- **Subscripts and superscripts are kept**: Eu<sub>2</sub>O<sub>3</sub>, Eu<sup>3+</sup>, μ(x), and citation marks are drawn small and raised or lowered in the translation.
+- Fixed translated text overlapping the next paragraph.
+- **Comparison view**: all pages scroll continuously and smoothly; with "Sync scrolling" off, each side scrolls on its own.
+- Fixed a clipped checkbox on the installer's finish page.
+
+### New in 0.5.1
+
+- **More accurate PDF translation**: pages embedded as a single graphic, such as journal cover pages, are now translated. Reference lists stay in the original language so the layout is kept.
+- When a translation lands on the wrong paragraph, that paragraph is translated again automatically. Personal names and dates are kept as written.
+- **Gemma 4 12B is the default built-in model**: until it is downloaded, a model already on your PC is used.
+- **Comparison view**: scrolling past the end of a page moves to the next (or previous) page; the page number box no longer has up/down arrows.
+- The installer's desktop and Start Menu shortcut boxes are checked on every update.
+
+### New in 0.5.0
+
+- **PDF translation**: translate PDFs while keeping figures, equations, and columns in place. Save the translated PDF and a bilingual PDF with the original and the translation side by side.
+- **17 languages**: Japanese, English, Chinese (Simplified and Traditional), Korean, Spanish, French, German, and more. The source language can be detected automatically.
+- **Three styles**: natural, literal, and plain language (やさしい日本語 for Japanese).
+- **OCR for scans**: pages without a text layer are read with the bundled OCR first (Japanese, English, Chinese).
+- **Built-in local LLM (default)**: download a model (Gemma 4 / Qwen3, 2.5–7.2 GB) in Settings and translate offline, for free, on your PC, using the GPU when available. Claude, OpenAI, Gemini, DeepL, and Ollama / LM Studio are also available.
+- **Compare full screen**: view the original and the translation side by side with zoom, synchronized scrolling, and full screen.
+- A new splash screen and Home screen.
+
+### New in 0.4.5
+
+- **Startup feels faster**: a small splash appears right after launch. In our measurements the time from clicking to seeing something dropped from about 1.2 s to about 0.6 s (it varies by PC).
+- Less work at startup when the UI is Japanese, and the settings screen does less when it first loads.
+- **Installer checkboxes**: fixed the clipped checkboxes on the "Select Additional Tasks" page.
+
+### New in 0.4.4
+
+- **Save next to the input** (on by default): results go into the input video's own folder, beside each video for per-video output or beside the first video for combined output. Turn it off to pick a folder as before.
+- Settings and the Process screen line every field up in one label and field column, including "Select detection area visually".
+- Expanding "スライド検出の詳細" or "開発者向け" no longer flickers; sections open and close smoothly.
+
+### New in 0.4.3
+
+- **Frame stepping in the crop dialog**: new −1s, −1 frame, +1 frame, and +1s buttons. Use ←/→ to move one frame and Shift+←/→ to move one second.
+- The time is shown to a hundredth of a second with the frame number, and the exact frame is loaded, so change points can be placed right where the layout switches.
+
+![Frame stepping in the crop dialog](docs/images/lectavo-region.png)
+
+### New in 0.4.2
+
+- **Crop by time**: when the screen layout changes mid-video, press "Change crop from this time" in the crop dialog to use a different crop from that point on. Timelines are saved per video; other videos use the shared crop.
+- **No page numbers**: turn this on in Settings or the crop dialog for slides without page numbers, so page-number changes don't count as new slides.
+- The crop dialog can be maximized.
+- Combined output goes into one folder per run, named after the output name, with the PDF, TXT, SRT, MD, and slide images inside.
+- The installer no longer shows an image in the top-right corner.
+
+### New in 0.4.1
+
+- The installer shows Lectavo artwork instead of Inno Setup's default box-and-disc images.
+- The sidebar shows the app icon, and the active item's icon is highlighted.
+- Input files on the Process screen are fixed-height rows with a type icon, an elided name, and a colored status.
+- Thinner separators, aligned settings labels, and chevron icons for expandable sections.
+
+### New in 0.4.0
+
+- **Checkpoints and resume**: completed slide analysis and transcripts are saved. After the app closes, an error, or a cancellation, use Resume on Home or "Resume from where it stopped" on the error screen to run only the remaining work. A failed transcription is retried without repeating slide analysis. Saved data can be reviewed and deleted in Settings; data unused for 14 days is removed automatically.
+- **Pre-run check**: before starting, Lectavo checks input files, audio and video tracks, free space in the output and temporary folders, whether the transcription model is ready, and GPU availability. A clean check starts immediately; otherwise the notes are shown first.
+- **Review slides**: after processing, review the extracted slides, remove unwanted pages, drag to reorder, and add missed scenes from the video. "Finalize PDF" rebuilds the PDF and lecture notes; removed images go to the Recycle Bin.
+- Videos without an audio track now skip transcription with a warning instead of failing.
+- Home shows a four-step getting-started guide with new icons.
+- The legacy `Lectavo-Setup.exe` asset remains as a compatibility alias for older updaters.
+
+![Slide review screen](docs/images/lectavo-review.png)
+
+### New in 0.3.1
+
+- Fixed collapsed hero text on 4K displays.
+- Separate Home and Process screens, with a resizable left file-tab list. Ctrl/Shift select multiple files; selected files can be removed together. Processing settings apply to the entire batch.
+- Distinguish silent audio, no detected speech, and model-loading errors. Unreadable models are repaired into regular local files or downloaded again without deleting the original cache.
+- All-failed audio batches no longer generate misleading empty notes.
+- Download `Lectavo-setup-0.3.1-x64.exe`. The legacy `Lectavo-Setup.exe` asset remains as a compatibility alias for older updaters.
+
+### New in 0.3.0
+
+- Transcribe MP3, M4A, and WAV into TXT, SRT, and Markdown. Mix video and audio inputs, or process audio alone without slide detection. Combined SRT offsets include the complete audio duration, including silence.
+- Select the slide crop and page-number area directly on a video preview. Seek to another frame, drag rectangles, or enter normalized coordinates. The green region determines the saved image; the yellow region is relative to it. Restore automatic detection at any time. A region applies to all selected videos, so process different layouts separately.
+- Check for stable GitHub releases in the background. Download only after approval, validate the SHA-256 and size, then ask again before starting the installer. Cancel downloads or disable startup checks in Settings. Installation waits for active processing to finish. Versions 0.2.x require one manual upgrade to enable future in-app update checks.
+- Start faster by deferring scientific libraries and GPU checks. Repeated launches activate the existing window. SVG icons identify navigation items.
+
+![Visual slide crop](docs/images/lectavo-region.png)
+
+Settings dropdowns and numeric inputs ignore mouse-wheel value changes, preventing accidental edits while scrolling. Use clicks, keyboard controls, or direct numeric entry to change settings.
+
+Scrolling also leaves keyboard focus unchanged. Under **File names**, choose original names, the common part of video names, or a custom name, then optionally append a date or timestamp. A preview shows the resulting PDF and transcript names. The same base name applies to PDF, TXT, SRT, and Markdown; combined images and Markdown links stay aligned. Per-video custom names retain the source name for distinction. Naming preferences are saved. To keep separate runs, append a timestamp; reusing a name updates the existing outputs.
+
+CLI examples: `--name-mode common --name-date datetime` or `--name-mode custom --output-name "Lecture notes"`.
+
+GUI and CLI default to the common video name with a timestamp. The old GUI defaults are migrated once; subsequent choices are preserved. Use `--name-mode original --name-date none` for legacy CLI filenames.
+
+</details>
 
 ## License
 
