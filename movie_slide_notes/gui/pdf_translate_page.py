@@ -473,6 +473,7 @@ class PdfTranslateWorker(QObject):
             log=lambda message: self._log(prefix + message),
             cancel_event=self.cancel_event,
             cache_path=translation_cache_path(),
+            edit_store=True,
         )
 
     def cancel(self) -> None:
@@ -985,6 +986,12 @@ class PdfTranslatePage(QWidget):
         self.compare_button.setIcon(_icon("slides-review"))
         self.compare_button.setToolTip("翻訳前と翻訳後を画面いっぱいに並べて比較します")
         nav.addWidget(self.compare_button)
+        self.edit_button = QPushButton("編集")
+        self.edit_button.setIcon(_icon("edit"))
+        self.edit_button.setToolTip(
+            "訳文の書き換え、図の移動・差し替えなど、翻訳後のPDFを編集します"
+        )
+        nav.addWidget(self.edit_button)
         nav.addStretch(1)
         layout.addLayout(nav)
 
@@ -1012,6 +1019,7 @@ class PdfTranslatePage(QWidget):
         self.next_page_button.clicked.connect(lambda: self._show_preview(self.preview_index + 1))
         self.open_folder_button.clicked.connect(self._open_output_folder)
         self.compare_button.clicked.connect(self.open_compare)
+        self.edit_button.clicked.connect(lambda: self.open_editor(self.preview_index))
         for pane in (self.before_pane, self.after_pane):
             pane.double_clicked = self.open_compare
         self.translate_again_button.clicked.connect(lambda: self.show_state("ready"))
@@ -1581,6 +1589,7 @@ class PdfTranslatePage(QWidget):
         self.done_detail.setText("\n".join(lines))
         self._populate_files(result)
         self._show_preview(0)
+        self.edit_button.setVisible(self._edit_document() is not None)
 
     def _failed(self, message: str) -> None:
         self._stop_thread()
@@ -1672,7 +1681,44 @@ class PdfTranslatePage(QWidget):
             QMessageBox.warning(self, tr("PDF翻訳"), tr("PDFを開けませんでした。") + f"\n\n{exc}")
             return
         self.compare_viewer = viewer
+        viewer.edit_button.setVisible(self._edit_document() is not None)
+        viewer.edit_requested.connect(lambda: self.open_editor(viewer.index, viewer))
         viewer.showMaximized()
+
+    def _translated_pdf(self) -> Path | None:
+        result = self.result
+        if result is None:
+            return None
+        return result.japanese_pdf or result.bilingual_pdf
+
+    def _edit_document(self):
+        from movie_slide_notes.pdf_translate import edits
+
+        path = self._translated_pdf()
+        return edits.find(path) if path is not None else None
+
+    def open_editor(self, page: int = 0, parent: QWidget | None = None) -> None:
+        """Edit the translated PDF; the previews and the comparison follow the saved file."""
+        from movie_slide_notes.gui.pdf_editor import open_editor
+
+        path = self._translated_pdf()
+        if path is None:
+            return
+        editor = open_editor(path, page, parent or self)
+        if editor is None:
+            return
+        self.pdf_editor = editor
+
+        def refresh() -> None:
+            self._show_preview(self.preview_index)
+            viewer = self.compare_viewer
+            if viewer is not None:
+                try:
+                    viewer.reload_after()
+                except RuntimeError:  # the viewer was closed
+                    self.compare_viewer = None
+
+        editor.saved.connect(refresh)
 
     def _first_page(self) -> int:
         """First translated page (1-based); a range is only offered for a single PDF."""

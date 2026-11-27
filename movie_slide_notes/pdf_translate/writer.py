@@ -285,23 +285,41 @@ def build_overlay(
                 fill=1,
             )
         for block, (_background, text_color) in zip(blocks, page_colors, strict=False):
-            font = block_font(block, script)
-            text, spans = encode_scripts(block.translated)
-            fitted = fit_text(text, font, block, spans)
-            canvas.setFillColor(Color(*text_color))
-            canvas.setFont(font, fitted.size)
-            baseline = block.y1 - fitted.size * 0.88
-            for line in fitted.lines:
-                if block.centered:
-                    line_width = text_width(line, font, fitted.size, spans)
-                    x = block.x0 + (block.width - line_width) / 2
-                else:
-                    x = block.x0
-                draw_line(canvas, x, baseline, line, font, fitted.size, spans)
-                baseline -= fitted.size * fitted.leading
+            draw_block_text(canvas, block, block.translated, text_color, script)
         canvas.showPage()
     canvas.save()
     return buffer.getvalue()
+
+
+def draw_block_text(
+    canvas,
+    block: TextBlock,
+    text: str,
+    color: tuple,
+    script: str = "ja",
+    fixed_size: float | None = None,
+) -> None:
+    """Draw ``text`` inside ``block``: fitted to it, or wrapped at ``fixed_size``."""
+    from reportlab.lib.colors import Color
+
+    font = block_font(block, script)
+    encoded, spans = encode_scripts(text)
+    if fixed_size:
+        size = max(1.0, fixed_size)
+        fitted = FittedText(wrap_text(encoded, font, size, max(4.0, block.width), spans), size)
+    else:
+        fitted = fit_text(encoded, font, block, spans)
+    canvas.setFillColor(Color(*color))
+    canvas.setFont(font, fitted.size)
+    baseline = block.y1 - fitted.size * 0.88
+    for line in fitted.lines:
+        if block.centered:
+            line_width = text_width(line, font, fitted.size, spans)
+            x = block.x0 + (block.width - line_width) / 2
+        else:
+            x = block.x0
+        draw_line(canvas, x, baseline, line, font, fitted.size, spans)
+        baseline -= fitted.size * fitted.leading
 
 
 def write_outputs(
