@@ -106,6 +106,9 @@ a = Analysis(
         "PySide6.QtCore",
         "PySide6.QtGui",
         "PySide6.QtWidgets",
+        # Video and audio preview on the processing page.
+        "PySide6.QtMultimedia",
+        "PySide6.QtMultimediaWidgets",
     ],
     hookspath=[],
     hooksconfig={},

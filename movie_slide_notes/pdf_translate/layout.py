@@ -285,11 +285,21 @@ def is_math_line(line) -> bool:
     return bool(_RELATION.search(text)) and words < 2
 
 
+def is_label_line(line) -> bool:
+    """True for a line of numbers only, such as a graph's tick labels ("10  15")."""
+    text = line.get_text()
+    return bool(re.search(r"\d", text)) and not re.search(r"[^\W\d_]", text)
+
+
 def split_math(lines: list) -> list[list]:
-    """Split a text box around formula lines, dropping the formulas themselves."""
+    """Split a text box around formula and number-only lines, which stay as they are.
+
+    A number-only line is usually tick labels that pdfminer grouped with an
+    axis title below them; translated together, the numbers end up in the title.
+    """
     groups: list[list] = [[]]
     for line in lines:
-        if is_math_line(line):
+        if is_math_line(line) or is_label_line(line):
             if groups[-1]:
                 groups.append([])
         else:
@@ -706,6 +716,44 @@ def sample_colors(image, scale: float, page_height: float, block: TextBlock):
     else:
         text = (0.0, 0.0, 0.0)
     return tuple(float(v) / 255 for v in background), text
+
+
+# Ink beyond a block's edge closer than this (in font sizes) belongs to its text.
+INK_GAP = 0.6
+INK_REACH = 3.0
+
+
+def extend_to_ink(image, scale: float, page_height: float, block: TextBlock, background) -> None:
+    """Widen ``block`` to the right over ink that continues its lines.
+
+    Some PDFs draw glyphs wider than their font metrics say (a symbol font the
+    viewer substitutes, for example), so the text runs past the box pdfminer
+    reports and its last letters would show beside the translation.
+    """
+    import numpy as np
+
+    if image is None or block.source == "ocr":
+        return
+    top = max(0, int((page_height - block.y1) * scale))
+    bottom = min(image.height, int((page_height - block.y0) * scale) + 1)
+    start = int(block.x1 * scale) + 1
+    stop = min(image.width, int((block.x1 + INK_REACH * block.font_size) * scale))
+    if bottom - top < 2 or stop <= start:
+        return
+    region = np.asarray(image.crop((start, top, stop, bottom))).astype(np.int32)
+    ground = np.array([v * 255 for v in background], dtype=np.int32)
+    ink = (np.abs(region - ground).sum(axis=2) > 90).any(axis=0)
+    gap_limit = max(1, int(INK_GAP * block.font_size * scale))
+    last, gap = -1, 0
+    for column, has_ink in enumerate(ink):
+        if has_ink:
+            last, gap = column, 0
+        else:
+            gap += 1
+            if gap > gap_limit:
+                break
+    if last >= 0:
+        block.x1 = max(block.x1, (start + last + 1) / scale)
 
 
 def page_list(total: int, first: int, last: int) -> list[int]:

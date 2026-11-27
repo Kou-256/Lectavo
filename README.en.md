@@ -12,7 +12,7 @@
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-0b1012" /></a>
 </p>
 
-<p align="center"><a href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.5.4-x64.exe"><strong>⬇ Download for Windows (0.5.4)</strong></a> ・ <a href="https://lectavo.vercel.app">Website (Japanese)</a> ・ <a href="README.md">日本語</a> ・ English</p>
+<p align="center"><a href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.5.5-x64.exe"><strong>⬇ Download for Windows (0.5.5)</strong></a> ・ <a href="https://lectavo.vercel.app">Website (Japanese)</a> ・ <a href="README.md">日本語</a> ・ English</p>
 
 ![Lectavo home screen](docs/images/lectavo-home.png)
 
@@ -70,7 +70,7 @@ Only the text is translated and written back onto the original page, in four ste
 
 ## Download
 
-Download `Lectavo-setup-0.5.4-x64.exe` from the [latest GitHub Release](https://github.com/Kou-256/Lectavo/releases/latest). The installed application does not require Python, pip, Git, a virtual environment, or a separate `ffmpeg.exe`.
+Download `Lectavo-setup-0.5.5-x64.exe` from the [latest GitHub Release](https://github.com/Kou-256/Lectavo/releases/latest). The installed application does not require Python, pip, Git, a virtual environment, or a separate `ffmpeg.exe`.
 
 - Windows 10 / 11 x64
 - Japanese UI by default
@@ -79,11 +79,11 @@ Download `Lectavo-setup-0.5.4-x64.exe` from the [latest GitHub Release](https://
 - GPU optional; CPU-only operation is supported
 - Desktop and Start Menu shortcuts enabled by default (checked again on every update)
 
-The current `0.5.4` binary is self-signed (publisher "Lectavo / Kou Hashizume"). Because the certificate is not from a trusted authority, Windows SmartScreen or an "unknown publisher" prompt may still appear. Compare the download with the SHA-256 value attached to the release.
+The current `0.5.5` binary is self-signed (publisher "Lectavo / Kou Hashizume"). Because the certificate is not from a trusted authority, Windows SmartScreen or an "unknown publisher" prompt may still appear. Compare the download with the SHA-256 value attached to the release.
 
 ## Basic use
 
-1. Run `Lectavo-setup-0.5.4-x64.exe`.
+1. Run `Lectavo-setup-0.5.5-x64.exe`.
 2. Launch Lectavo from the desktop or Start Menu.
 3. Add videos with the file button, folder link, or drag and drop.
 4. Choose combined output or per-video output.
@@ -176,14 +176,20 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidance and [SECURITY.md
 
 ## Changelog
 
+### New in 0.5.5
+
+- **Video and audio preview**: play the selected file on the processing page to check it (play/pause, seek, mute).
+- **PDF translation**: graph tick numbers are no longer translated together with the axis title, and stray original letters (such as "t.") no longer show beside translations.
+- Download `Lectavo-setup-0.5.5-x64.exe`.
+
+<details>
+<summary>Earlier versions</summary>
+
 ### New in 0.5.4
 
 - **Edit translated PDFs**: from the done screen or the comparison view, rewrite, move and resize translations; cut out, move, resize, delete or replace figures; add text and images; and erase areas. Saving writes the translated and bilingual PDFs again.
 - **Select and copy text in the comparison view**: drag to select and press Ctrl+C. Selections can span pages and follow the reading order of two-column pages; the original text hidden under a translation is not selected.
 - Download `Lectavo-setup-0.5.4-x64.exe`.
-
-<details>
-<summary>Earlier versions</summary>
 
 ### New in 0.5.3
 
