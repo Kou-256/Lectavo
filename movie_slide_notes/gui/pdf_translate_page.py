@@ -13,6 +13,7 @@ from threading import Event
 from PySide6.QtCore import QObject, QSettings, QSize, Qt, QThread, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices, QImage, QPixmap
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QButtonGroup,
     QCheckBox,
@@ -22,6 +23,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPlainTextEdit,
     QProgressBar,
@@ -79,6 +82,8 @@ STYLE_DESCRIPTIONS = {
 }
 CACHE_FILE = "translation_cache.sqlite3"
 PREVIEW_HEIGHT = 420
+SOURCE_PREVIEW_HEIGHT = 360
+FILE_ROW_HEIGHT = 52
 # PDFs translated at the same time; one is read while another is being translated.
 PARALLEL_FILES = 2
 
@@ -534,6 +539,20 @@ def render_pdf_page(path: Path, index: int, height: int, ratio: float) -> QPixma
     return pixmap
 
 
+def _file_list_row(name: str, detail: str) -> QWidget:
+    """A row of the PDF list: the file name above its page count."""
+    row = QWidget()
+    row.setAttribute(Qt.WA_TransparentForMouseEvents)
+    layout = QVBoxLayout(row)
+    layout.setContentsMargins(10, 6, 10, 6)
+    layout.setSpacing(0)
+    title = ElidedLabel(name)
+    title.setObjectName("FileName")
+    layout.addWidget(title)
+    layout.addWidget(_label(detail, "SecondaryText"))
+    return row
+
+
 class PreviewPane(QFrame):
     """One rendered page with a caption above it."""
 
@@ -591,6 +610,8 @@ class PdfTranslatePage(QWidget):
         self.job_rows: list[tuple[QLabel, QProgressBar]] = []
         self.job_fractions: list[float] = []
         self.preview_index = 0
+        self.source_preview_index = 0
+        self.source_infos: dict[Path, dict] = {}
         self.thread: QThread | None = None
         self.worker: PdfTranslateWorker | None = None
         self.started_at = 0.0
@@ -683,26 +704,66 @@ class PdfTranslatePage(QWidget):
         self._header(layout, "PDF翻訳", "訳し方と出力を選んでから翻訳を開始します。")
 
         section_header(layout, "翻訳するPDF")
-        card = QFrame()
-        card.setObjectName("SoftPanel")
-        card_layout = QHBoxLayout(card)
-        card_layout.setContentsMargins(16, 14, 16, 14)
-        card_layout.setSpacing(14)
-        file_icon = QLabel()
-        file_icon.setPixmap(svg_pixmap("file-pdf", 32, "#14a39b"))
-        card_layout.addWidget(file_icon, 0, Qt.AlignVCenter)
-        file_text = QVBoxLayout()
-        file_text.setSpacing(2)
+        files_row = QHBoxLayout()
+        files_row.setSpacing(12)
+        file_panel = QFrame()
+        file_panel.setObjectName("SoftPanel")
+        file_layout = QVBoxLayout(file_panel)
+        file_layout.setContentsMargins(14, 12, 14, 12)
+        file_layout.setSpacing(8)
         self.file_name = ElidedLabel("")
         self.file_name.setObjectName("SectionTitle")
-        self.file_detail = _label("", "SecondaryText")
-        file_text.addWidget(self.file_name)
-        file_text.addWidget(self.file_detail)
-        card_layout.addLayout(file_text, 1)
-        self.change_file_button = QPushButton("変更")
-        self.change_file_button.setObjectName("LinkButton")
-        card_layout.addWidget(self.change_file_button)
-        layout.addWidget(card)
+        file_layout.addWidget(self.file_name)
+        self.file_list = QListWidget()
+        self.file_list.setObjectName("FileTabs")
+        self.file_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.file_list.setTextElideMode(Qt.ElideMiddle)
+        self.file_list.setAccessibleName("翻訳するPDF")
+        self.file_list.setToolTip(
+            "クリックしたPDFを右に表示します。Ctrlで複数選択、Shiftで範囲選択できます。"
+        )
+        self.file_list.setMinimumHeight(150)
+        self.file_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.file_list.setSpacing(2)
+        file_layout.addWidget(self.file_list, 1)
+        self.file_detail = _label("", "SecondaryText", wrap=True)
+        file_layout.addWidget(self.file_detail)
+        file_buttons = QHBoxLayout()
+        file_buttons.setSpacing(8)
+        self.add_file_button = QPushButton("PDFを追加")
+        self.remove_file_button = QPushButton("選択を削除")
+        file_buttons.addWidget(self.add_file_button)
+        file_buttons.addWidget(self.remove_file_button)
+        file_buttons.addStretch(1)
+        file_layout.addLayout(file_buttons)
+        files_row.addWidget(file_panel, 2)
+
+        preview_column = QVBoxLayout()
+        preview_column.setSpacing(6)
+        self.source_pane = PreviewPane("プレビュー")
+        self.source_pane.image.setMinimumHeight(SOURCE_PREVIEW_HEIGHT)
+        self.source_pane.setToolTip("ダブルクリックでPDFを開きます")
+        preview_column.addWidget(self.source_pane, 1)
+        source_nav = QHBoxLayout()
+        source_nav.addStretch(1)
+        self.source_prev_button = QPushButton()
+        self.source_prev_button.setIcon(_icon("move-left"))
+        self.source_prev_button.setAccessibleName("前のページ")
+        self.source_prev_button.setToolTip("前のページ")
+        self.source_page_label = _label("", "SecondaryText")
+        self.source_page_label.setAlignment(Qt.AlignCenter)
+        self.source_page_label.setMinimumWidth(80)
+        self.source_next_button = QPushButton()
+        self.source_next_button.setIcon(_icon("move-right"))
+        self.source_next_button.setAccessibleName("次のページ")
+        self.source_next_button.setToolTip("次のページ")
+        source_nav.addWidget(self.source_prev_button)
+        source_nav.addWidget(self.source_page_label)
+        source_nav.addWidget(self.source_next_button)
+        source_nav.addStretch(1)
+        preview_column.addLayout(source_nav)
+        files_row.addLayout(preview_column, 3)
+        layout.addLayout(files_row)
 
         section_header(layout, "言語")
         language_row = QHBoxLayout()
@@ -816,7 +877,16 @@ class PdfTranslatePage(QWidget):
         self.stack.addWidget(page)
         self.ready_page = page
 
-        self.change_file_button.clicked.connect(self.choose_pdf)
+        self.add_file_button.clicked.connect(self.add_pdfs)
+        self.remove_file_button.clicked.connect(self.remove_selected_pdfs)
+        self.file_list.currentRowChanged.connect(lambda _row: self._show_source_preview(0))
+        self.source_prev_button.clicked.connect(
+            lambda: self._show_source_preview(self.source_preview_index - 1)
+        )
+        self.source_next_button.clicked.connect(
+            lambda: self._show_source_preview(self.source_preview_index + 1)
+        )
+        self.source_pane.double_clicked = self._open_previewed_pdf
         self.style_group.buttonToggled.connect(self._style_changed)
         self.all_pages_check.toggled.connect(self._range_changed)
         self.first_page.valueChanged.connect(lambda v: self.last_page.setMinimum(v))
@@ -1152,11 +1222,28 @@ class PdfTranslatePage(QWidget):
         if paths:
             self.set_sources([Path(path) for path in paths])
 
+    def add_pdfs(self) -> None:
+        start = (
+            str(self.source.parent)
+            if self.source
+            else str(self.settings.value("translate/last_dir", ""))
+        )
+        paths, _ = QFileDialog.getOpenFileNames(self, tr("PDFを追加"), start, tr("PDF (*.pdf)"))
+        if paths:
+            self.add_sources([Path(path) for path in paths])
+
     def set_source(self, path: Path) -> bool:
         return self.set_sources([path])
 
     def set_sources(self, paths: list[Path]) -> bool:
         """Choose the PDFs to translate; several are translated in one run."""
+        return self._use_sources(paths, replace=True)
+
+    def add_sources(self, paths: list[Path]) -> bool:
+        """Add PDFs to the ones already chosen."""
+        return self._use_sources(paths, replace=False)
+
+    def _use_sources(self, paths: list[Path], replace: bool) -> bool:
         if self.busy:
             return False
         paths = list(dict.fromkeys(paths))
@@ -1165,11 +1252,12 @@ class PdfTranslatePage(QWidget):
             return False
         from movie_slide_notes.pdf_translate.pipeline import inspect_pdf
 
-        infos = []
+        infos = {} if replace else dict(self.source_infos)
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             for path in paths:
-                infos.append(inspect_pdf(path))
+                if path not in infos:
+                    infos[path] = inspect_pdf(path)
         except Exception as exc:
             QApplication.restoreOverrideCursor()
             QMessageBox.warning(
@@ -1179,27 +1267,64 @@ class PdfTranslatePage(QWidget):
             )
             return False
         QApplication.restoreOverrideCursor()
-        self.sources = paths
-        self.source_info = infos[0]
+        previous = None if replace else self._previewed_source()
+        self.source_infos = infos
+        self.sources = list(infos)
         self.settings.setValue("translate/last_dir", str(paths[0].parent))
-        total = sum(int(info["pages"]) for info in infos)
-        if len(paths) == 1:
-            info = infos[0]
-            self.file_name.setText(paths[0].name)
-            detail = tr("{pages}ページ").format(pages=total)
+        self._refresh_sources(previous if previous in infos else paths[0])
+        self.show_state("ready")
+        return True
+
+    def remove_selected_pdfs(self) -> None:
+        if self.busy:
+            return
+        selected = {item.data(Qt.UserRole) for item in self.file_list.selectedItems()}
+        if not selected:
+            return
+        self.sources = [path for path in self.sources if path not in selected]
+        self.source_infos = {path: self.source_infos[path] for path in self.sources}
+        if not self.sources:
+            self.show_state("empty")
+            return
+        self._refresh_sources(self.sources[0])
+
+    def _refresh_sources(self, current: Path | None = None) -> None:
+        """Rebuild the file list, its summary and the page range for the chosen PDFs."""
+        infos = [self.source_infos[path] for path in self.sources]
+        self.source_info = infos[0] if infos else {}
+        self.file_list.blockSignals(True)
+        self.file_list.clear()
+        for path, info in zip(self.sources, infos, strict=True):
+            detail = tr("{pages}ページ").format(pages=int(info["pages"]))
             if info.get("scanned"):
                 detail += tr(" · スキャンPDF（OCRで読み取ります）")
             elif info.get("partly_scanned"):
                 detail += tr(" · 一部がスキャンページ（自動でOCR）")
+            item = QListWidgetItem()
+            item.setData(Qt.UserRole, path)
+            item.setData(Qt.AccessibleTextRole, f"{path.name} {detail}")
+            item.setToolTip(str(path))
+            item.setSizeHint(QSize(0, FILE_ROW_HEIGHT))
+            self.file_list.addItem(item)
+            self.file_list.setItemWidget(item, _file_list_row(path.name, detail))
+            if path == current:
+                self.file_list.setCurrentItem(item)
+        if self.file_list.currentRow() < 0 and self.sources:
+            self.file_list.setCurrentRow(0)
+        self.file_list.blockSignals(False)
+        total = sum(int(info["pages"]) for info in infos)
+        if len(self.sources) == 1:
+            self.file_name.setText(self.sources[0].name)
+            self.file_detail.setText(tr("{pages}ページ").format(pages=total))
         else:
-            self.file_name.setText(tr("{count}件のPDF").format(count=len(paths)))
-            detail = tr("合計{pages}ページ · {parallel}件ずつ並行して翻訳します").format(
-                pages=total, parallel=PARALLEL_FILES
+            self.file_name.setText(tr("{count}件のPDF").format(count=len(self.sources)))
+            self.file_detail.setText(
+                tr("合計{pages}ページ · {parallel}件ずつ並行して翻訳します").format(
+                    pages=total, parallel=PARALLEL_FILES
+                )
             )
-            detail += "\n" + "\n".join(path.name for path in paths)
-        self.file_detail.setText(detail)
-        self.file_detail.setWordWrap(True)
-        pages = int(infos[0]["pages"])
+        self.remove_file_button.setEnabled(len(self.sources) > 1)
+        pages = int(infos[0]["pages"]) if infos else 1
         for spin in (self.first_page, self.last_page):
             spin.setMaximum(max(1, pages))
         self.first_page.setValue(1)
@@ -1207,13 +1332,38 @@ class PdfTranslatePage(QWidget):
         self.all_pages_check.setChecked(True)
         self._range_changed(True)
         # A page range only makes sense for one PDF.
-        single = len(paths) == 1
+        single = len(self.sources) == 1
         self.range_row.setVisible(single)
         label = self.options_form.labelForField(self.range_row)
         if label is not None:
             label.setVisible(single)
-        self.show_state("ready")
-        return True
+        self._show_source_preview(0)
+        self._validate()
+
+    def _previewed_source(self) -> Path | None:
+        item = self.file_list.currentItem()
+        return item.data(Qt.UserRole) if item is not None else self.source
+
+    def _show_source_preview(self, index: int) -> None:
+        """Show a page of the PDF selected in the list."""
+        path = self._previewed_source()
+        if path is None or path not in self.source_infos:
+            return
+        pages = max(1, int(self.source_infos[path]["pages"]))
+        index = max(0, min(pages - 1, index))
+        self.source_preview_index = index
+        self.source_pane.caption.setText(path.name)
+        self.source_pane.set_pixmap(
+            render_pdf_page(path, index, SOURCE_PREVIEW_HEIGHT, self.devicePixelRatioF())
+        )
+        self.source_page_label.setText(f"{index + 1} / {pages}")
+        self.source_prev_button.setEnabled(index > 0)
+        self.source_next_button.setEnabled(index < pages - 1)
+
+    def _open_previewed_pdf(self) -> None:
+        path = self._previewed_source()
+        if path is not None:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     # running ------------------------------------------------------------------
 
@@ -1568,7 +1718,10 @@ class PdfTranslatePage(QWidget):
         paths = [Path(url.toLocalFile()) for url in event.mimeData().urls()]
         pdfs = [path for path in paths if path.suffix.lower() == ".pdf"]
         if pdfs:
-            self.set_sources(pdfs)
+            if self.stack.currentWidget() is self.ready_page and self.sources:
+                self.add_sources(pdfs)
+            else:
+                self.set_sources(pdfs)
             event.acceptProposedAction()
 
 
