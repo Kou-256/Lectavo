@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from threading import Event
@@ -78,6 +79,8 @@ STYLE_DESCRIPTIONS = {
 }
 CACHE_FILE = "translation_cache.sqlite3"
 PREVIEW_HEIGHT = 420
+# PDFs translated at the same time; one is read while another is being translated.
+PARALLEL_FILES = 2
 
 
 def translation_cache_path() -> Path:
@@ -395,47 +398,77 @@ def provider_note(provider: str) -> str:
 
 
 class PdfTranslateWorker(QObject):
-    progress = Signal(object)
+    """Translates one or more PDFs, ``PARALLEL_FILES`` at a time, with one engine."""
+
+    progress = Signal(int, object)  # position of the PDF, TranslateProgress
     log = Signal(str)
-    finished = Signal(object)
+    file_done = Signal(int, str)  # position, "" when translated or the error message
+    finished = Signal(object)  # list of (PdfTranslationResult | None, error message)
     failed = Signal(str)
     cancelled = Signal()
 
     def __init__(
-        self, source: Path, output_dir: Path, options: PdfTranslationOptions, config: EngineConfig
+        self,
+        jobs: list[tuple[Path, Path]],
+        options: PdfTranslationOptions,
+        config: EngineConfig,
     ):
         super().__init__()
-        self.source = source
-        self.output_dir = output_dir
+        self.jobs = jobs  # (source PDF, output folder)
         self.options = options
         self.config = config
         self.cancel_event = Event()
 
     @Slot()
     def run(self) -> None:
-        from movie_slide_notes.pdf_translate.pipeline import TranslationCancelled, translate_pdf
+        from movie_slide_notes.pdf_translate.pipeline import TranslationCancelled
 
         try:
             engine = create_engine(self.config)
-            result = translate_pdf(
-                self.source,
-                self.output_dir,
-                self.options,
-                engine,
-                self.config.cache_key,
-                progress=self.progress.emit,
-                log=self._log,
-                cancel_event=self.cancel_event,
-                cache_path=translation_cache_path(),
-            )
-            self.finished.emit(result)
-        except TranslationCancelled:
-            self.cancelled.emit()
         except (TranslationError, ValueError) as exc:
             self.failed.emit(str(exc))
-        except Exception as exc:
-            logging.getLogger("lectavo").exception("PDF translation failed")
-            self.failed.emit(str(exc) or exc.__class__.__name__)
+            return
+        outcomes: list[tuple[PdfTranslationResult | None, str]] = [(None, "")] * len(self.jobs)
+        with ThreadPoolExecutor(max_workers=min(PARALLEL_FILES, len(self.jobs))) as pool:
+            futures = {
+                pool.submit(self._translate, position, engine): position
+                for position in range(len(self.jobs))
+            }
+            for future in as_completed(futures):
+                position = futures[future]
+                try:
+                    outcomes[position] = (future.result(), "")
+                except TranslationCancelled:
+                    continue
+                except (TranslationError, ValueError) as exc:
+                    outcomes[position] = (None, str(exc))
+                except Exception as exc:
+                    logging.getLogger("lectavo").exception("PDF translation failed")
+                    outcomes[position] = (None, str(exc) or exc.__class__.__name__)
+                self.file_done.emit(position, outcomes[position][1])
+        if self.cancel_event.is_set():
+            self.cancelled.emit()
+        elif not any(result for result, _error in outcomes):
+            self.failed.emit(next((error for _result, error in outcomes if error), ""))
+        else:
+            self.finished.emit(outcomes)
+
+    def _translate(self, position: int, engine) -> PdfTranslationResult:
+        from movie_slide_notes.pdf_translate.pipeline import translate_pdf
+
+        source, output_dir = self.jobs[position]
+        prefix = f"{source.name}: " if len(self.jobs) > 1 else ""
+        return translate_pdf(
+            source,
+            output_dir,
+            self.options,
+            engine,
+            self.config.cache_key,
+            progress=lambda event: self.progress.emit(position, event),
+            log=lambda message: self._log(prefix + message),
+            cancel_event=self.cancel_event,
+            cache_path=translation_cache_path(),
+        )
 
     def cancel(self) -> None:
         self.cancel_event.set()
@@ -480,16 +513,19 @@ def render_pdf_page(path: Path, index: int, height: int, ratio: float) -> QPixma
     try:
         import pypdfium2 as pdfium
 
-        document = pdfium.PdfDocument(str(path))
-        try:
-            if index >= len(document):
-                return None
-            page = document[index]
-            scale = height * ratio / max(1.0, page.get_height())
-            image = page.render(scale=scale).to_pil()
-            page.close()
-        finally:
-            document.close()
+        from movie_slide_notes.pdf_translate.layout import PDFIUM_LOCK
+
+        with PDFIUM_LOCK:
+            document = pdfium.PdfDocument(str(path))
+            try:
+                if index >= len(document):
+                    return None
+                page = document[index]
+                scale = height * ratio / max(1.0, page.get_height())
+                image = page.render(scale=scale).to_pil()
+                page.close()
+            finally:
+                document.close()
     except Exception:
         logging.getLogger("lectavo").exception("Preview rendering failed")
         return None
@@ -547,9 +583,13 @@ class PdfTranslatePage(QWidget):
         super().__init__(parent)
         self.settings = settings
         self.engine_settings = engine_settings
-        self.source: Path | None = None
+        self.sources: list[Path] = []
         self.source_info: dict = {}
         self.result: PdfTranslationResult | None = None
+        self.results: list[PdfTranslationResult] = []
+        self.failure_text = ""
+        self.job_rows: list[tuple[QLabel, QProgressBar]] = []
+        self.job_fractions: list[float] = []
         self.preview_index = 0
         self.thread: QThread | None = None
         self.worker: PdfTranslateWorker | None = None
@@ -591,7 +631,7 @@ class PdfTranslatePage(QWidget):
         hero = QLabel()
         hero.setPixmap(svg_pixmap("translate", 64, "#14a39b"))
         hero.setAlignment(Qt.AlignCenter)
-        title = _label("PDFをここにドロップ", "SectionTitle")
+        title = _label("PDFをここにドロップ（複数可）", "SectionTitle")
         title.setAlignment(Qt.AlignCenter)
         self.choose_button = QPushButton("PDFを選択")
         self.choose_button.setObjectName("PrimaryButton")
@@ -732,7 +772,11 @@ class PdfTranslatePage(QWidget):
         range_row.addWidget(self.range_separator)
         range_row.addWidget(self.last_page)
         range_row.addStretch(1)
-        form.addRow("ページ", range_row)
+        range_row.setContentsMargins(0, 0, 0, 0)
+        self.range_row = QWidget()
+        self.range_row.setLayout(range_row)
+        form.addRow("ページ", self.range_row)
+        self.options_form = form
 
         self.next_to_source_check = QCheckBox("PDFと同じフォルダに保存する")
         form.addRow("保存先", self.next_to_source_check)
@@ -801,6 +845,10 @@ class PdfTranslatePage(QWidget):
         layout.addWidget(self.running_stage)
         layout.addWidget(self.progress_bar)
         layout.addWidget(self.running_detail)
+        # One row per PDF when several are translated together.
+        self.jobs_layout = QVBoxLayout()
+        self.jobs_layout.setSpacing(6)
+        layout.addLayout(self.jobs_layout)
         self.running_log = QPlainTextEdit()
         self.running_log.setReadOnly(True)
         self.running_log.setMaximumBlockCount(500)
@@ -824,6 +872,16 @@ class PdfTranslatePage(QWidget):
         title_row.addWidget(_label("翻訳が完了しました", "PageTitle"))
         title_row.addStretch(1)
         layout.addLayout(title_row)
+        self.result_row = QWidget()
+        result_row = QHBoxLayout(self.result_row)
+        result_row.setContentsMargins(0, 0, 0, 0)
+        result_row.setSpacing(10)
+        result_row.addWidget(_label("表示するPDF", "SecondaryText"))
+        self.result_combo = QComboBox()
+        self.result_combo.setAccessibleName("表示するPDF")
+        result_row.addWidget(self.result_combo, 1)
+        layout.addWidget(self.result_row)
+        self.result_row.setVisible(False)
         self.done_detail = _label("", "SecondaryText", wrap=True)
         layout.addWidget(self.done_detail)
 
@@ -879,6 +937,7 @@ class PdfTranslatePage(QWidget):
         self.stack.addWidget(page)
         self.done_page = page
 
+        self.result_combo.currentIndexChanged.connect(self._show_result)
         self.prev_page_button.clicked.connect(lambda: self._show_preview(self.preview_index - 1))
         self.next_page_button.clicked.connect(lambda: self._show_preview(self.preview_index + 1))
         self.open_folder_button.clicked.connect(self._open_output_folder)
@@ -1043,7 +1102,7 @@ class PdfTranslatePage(QWidget):
     def _validate(self) -> None:
         provider = self.engine_settings.provider
         ok = (
-            self.source is not None
+            bool(self.sources)
             and (self.japanese_check.isChecked() or self.bilingual_check.isChecked())
             and self.engine_settings.ready(provider)
             and supports_style(provider, self.selected_style())
@@ -1071,9 +1130,14 @@ class PdfTranslatePage(QWidget):
         if folder:
             self.output_folder.setText(folder)
 
-    def output_dir(self) -> Path:
-        if self.next_to_source_check.isChecked() and self.source is not None:
-            return self.source.parent
+    @property
+    def source(self) -> Path | None:
+        return self.sources[0] if self.sources else None
+
+    def output_dir(self, source: Path | None = None) -> Path:
+        source = source or self.source
+        if self.next_to_source_check.isChecked() and source is not None:
+            return source.parent
         return Path(self.output_folder.text())
 
     # file selection -----------------------------------------------------------
@@ -1084,52 +1148,77 @@ class PdfTranslatePage(QWidget):
             if self.source
             else str(self.settings.value("translate/last_dir", ""))
         )
-        path, _ = QFileDialog.getOpenFileName(self, tr("PDFを選択"), start, tr("PDF (*.pdf)"))
-        if path:
-            self.set_source(Path(path))
+        paths, _ = QFileDialog.getOpenFileNames(self, tr("PDFを選択"), start, tr("PDF (*.pdf)"))
+        if paths:
+            self.set_sources([Path(path) for path in paths])
 
     def set_source(self, path: Path) -> bool:
+        return self.set_sources([path])
+
+    def set_sources(self, paths: list[Path]) -> bool:
+        """Choose the PDFs to translate; several are translated in one run."""
         if self.busy:
             return False
-        if path.suffix.lower() != ".pdf" or not path.is_file():
+        paths = list(dict.fromkeys(paths))
+        if not paths or any(p.suffix.lower() != ".pdf" or not p.is_file() for p in paths):
             QMessageBox.warning(self, tr("PDF翻訳"), tr("PDFファイルを選んでください。"))
             return False
         from movie_slide_notes.pdf_translate.pipeline import inspect_pdf
 
+        infos = []
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            info = inspect_pdf(path)
+            for path in paths:
+                infos.append(inspect_pdf(path))
         except Exception as exc:
             QApplication.restoreOverrideCursor()
             QMessageBox.warning(
-                self, tr("PDF翻訳"), tr("このPDFを開けませんでした。") + f"\n\n{tr(str(exc))}"
+                self,
+                tr("PDF翻訳"),
+                tr("このPDFを開けませんでした。") + f"\n\n{path.name}\n{tr(str(exc))}",
             )
             return False
         QApplication.restoreOverrideCursor()
-        self.source = path
-        self.source_info = info
-        self.settings.setValue("translate/last_dir", str(path.parent))
-        self.file_name.setText(path.name)
-        pages = int(info["pages"])
-        detail = tr("{pages}ページ").format(pages=pages)
-        if info.get("scanned"):
-            detail += tr(" · スキャンPDF（OCRで読み取ります）")
-        elif info.get("partly_scanned"):
-            detail += tr(" · 一部がスキャンページ（自動でOCR）")
+        self.sources = paths
+        self.source_info = infos[0]
+        self.settings.setValue("translate/last_dir", str(paths[0].parent))
+        total = sum(int(info["pages"]) for info in infos)
+        if len(paths) == 1:
+            info = infos[0]
+            self.file_name.setText(paths[0].name)
+            detail = tr("{pages}ページ").format(pages=total)
+            if info.get("scanned"):
+                detail += tr(" · スキャンPDF（OCRで読み取ります）")
+            elif info.get("partly_scanned"):
+                detail += tr(" · 一部がスキャンページ（自動でOCR）")
+        else:
+            self.file_name.setText(tr("{count}件のPDF").format(count=len(paths)))
+            detail = tr("合計{pages}ページ · {parallel}件ずつ並行して翻訳します").format(
+                pages=total, parallel=PARALLEL_FILES
+            )
+            detail += "\n" + "\n".join(path.name for path in paths)
         self.file_detail.setText(detail)
+        self.file_detail.setWordWrap(True)
+        pages = int(infos[0]["pages"])
         for spin in (self.first_page, self.last_page):
             spin.setMaximum(max(1, pages))
         self.first_page.setValue(1)
         self.last_page.setValue(max(1, pages))
         self.all_pages_check.setChecked(True)
         self._range_changed(True)
+        # A page range only makes sense for one PDF.
+        single = len(paths) == 1
+        self.range_row.setVisible(single)
+        label = self.options_form.labelForField(self.range_row)
+        if label is not None:
+            label.setVisible(single)
         self.show_state("ready")
         return True
 
     # running ------------------------------------------------------------------
 
     def start(self) -> None:
-        if self.busy or self.source is None:
+        if self.busy or not self.sources:
             return
         self._save_options()
         options = PdfTranslationOptions(
@@ -1143,15 +1232,21 @@ class PdfTranslatePage(QWidget):
             target_lang=self.target_lang(),
         )
         self.last_options = options
-        output_dir = self.output_dir()
+        jobs = [(source, self.output_dir(source)) for source in self.sources]
         try:
-            output_dir.mkdir(parents=True, exist_ok=True)
+            for _source, output_dir in jobs:
+                output_dir.mkdir(parents=True, exist_ok=True)
         except OSError:
             QMessageBox.warning(self, tr("PDF翻訳"), tr("保存先のフォルダを作成できません。"))
             return
         from movie_slide_notes.pdf_translate.pipeline import output_paths
 
-        existing = [p for p in output_paths(self.source, output_dir, options) if p and p.exists()]
+        existing = [
+            path
+            for source, output_dir in jobs
+            for path in output_paths(source, output_dir, options)
+            if path and path.exists()
+        ]
         if existing:
             names = "\n".join(p.name for p in existing)
             answer = QMessageBox.question(
@@ -1162,7 +1257,15 @@ class PdfTranslatePage(QWidget):
             if answer != QMessageBox.Yes:
                 return
         self.running_log.clear()
-        self.running_file.setText(self.source.name)
+        if len(jobs) == 1:
+            self.running_file.setText(self.source.name)
+        else:
+            self.running_file.setText(
+                tr("{count}件のPDFを、{parallel}件ずつ並行して翻訳しています").format(
+                    count=len(jobs), parallel=PARALLEL_FILES
+                )
+            )
+        self._build_job_rows([source for source, _output in jobs])
         self.running_stage.setText(tr("準備しています"))
         self.running_detail.setText("")
         self.progress_bar.setValue(0)
@@ -1172,13 +1275,12 @@ class PdfTranslatePage(QWidget):
         self.elapsed_timer.start()
 
         self.thread = QThread(self)
-        self.worker = PdfTranslateWorker(
-            self.source, output_dir, options, self.engine_settings.config()
-        )
+        self.worker = PdfTranslateWorker(jobs, options, self.engine_settings.config())
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.progress.connect(self._progress)
         self.worker.log.connect(self.running_log.appendPlainText)
+        self.worker.file_done.connect(self._file_done)
         self.worker.finished.connect(self._finished)
         self.worker.failed.connect(self._failed)
         self.worker.cancelled.connect(self._cancelled)
@@ -1191,9 +1293,70 @@ class PdfTranslatePage(QWidget):
             self.cancel_button.setEnabled(False)
             self.running_stage.setText(tr("キャンセルしています…"))
 
-    def _progress(self, event) -> None:
-        self.progress_bar.setValue(int(event.fraction * 1000))
-        self.running_stage.setText(tr(event.message))
+    def _build_job_rows(self, sources: list[Path]) -> None:
+        while self.jobs_layout.count():
+            item = self.jobs_layout.takeAt(0)
+            if item.widget() is not None:
+                item.widget().deleteLater()
+        self.job_rows = []
+        self.job_fractions = [0.0] * len(sources)
+        if len(sources) < 2:
+            return
+        for source in sources:
+            row = QFrame()
+            row.setObjectName("SoftPanel")
+            row_layout = QGridLayout(row)
+            row_layout.setContentsMargins(12, 8, 12, 8)
+            row_layout.setHorizontalSpacing(12)
+            row_layout.setVerticalSpacing(4)
+            name = ElidedLabel(source.name)
+            name.setObjectName("FileName")
+            status = _label(tr("待機中"), "SecondaryText")
+            bar = QProgressBar()
+            bar.setRange(0, 1000)
+            bar.setTextVisible(False)
+            bar.setFixedHeight(6)
+            row_layout.addWidget(name, 0, 0)
+            row_layout.addWidget(status, 0, 1, Qt.AlignRight)
+            row_layout.addWidget(bar, 1, 0, 1, 2)
+            row_layout.setColumnStretch(0, 1)
+            self.jobs_layout.addWidget(row)
+            self.job_rows.append((status, bar))
+
+    def _progress(self, position: int, event) -> None:
+        if position < len(self.job_fractions):
+            self.job_fractions[position] = min(event.fraction, 0.99)
+        if self.job_rows:
+            status, bar = self.job_rows[position]
+            bar.setValue(int(event.fraction * 1000))
+            status.setText(tr(event.message))
+        else:
+            self.running_stage.setText(tr(event.message))
+        self._update_overall()
+
+    def _update_overall(self) -> None:
+        fractions = self.job_fractions or [0.0]
+        self.progress_bar.setValue(int(sum(fractions) / len(fractions) * 1000))
+        if self.job_rows:
+            done = sum(1 for fraction in fractions if fraction >= 1.0)
+            self.running_stage.setText(
+                tr("{done}/{count}件が完了").format(done=done, count=len(fractions))
+            )
+
+    def _file_done(self, position: int, error: str) -> None:
+        if position < len(self.job_fractions):
+            self.job_fractions[position] = 1.0
+        if position < len(self.job_rows):
+            status, bar = self.job_rows[position]
+            bar.setValue(1000)
+            if error:
+                status.setText(tr("翻訳できませんでした"))
+                status.setObjectName("ErrorText")
+                status.style().unpolish(status)
+                status.style().polish(status)
+            else:
+                status.setText(tr("完了しました"))
+        self._update_overall()
 
     def _update_elapsed(self) -> None:
         seconds = int(time.monotonic() - self.started_at)
@@ -1213,9 +1376,39 @@ class PdfTranslatePage(QWidget):
             callback, self.close_after_cancel = self.close_after_cancel, None
             callback()
 
-    def _finished(self, result: PdfTranslationResult) -> None:
-        self.result = result
+    def _finished(self, outcomes: list) -> None:
         self._stop_thread()
+        self.results = [result for result, _error in outcomes if result is not None]
+        self.failure_text = "\n".join(
+            f"{source.name}: {tr(error) if error else tr('翻訳できませんでした')}"
+            for source, (result, error) in zip(self.sources, outcomes, strict=False)
+            if result is None
+        )
+        self.result_combo.blockSignals(True)
+        self.result_combo.clear()
+        for result in self.results:
+            self.result_combo.addItem(result.source.name)
+        self.result_combo.blockSignals(False)
+        self.result_row.setVisible(len(self.results) > 1)
+        self._show_result(0)
+        self.show_state("done")
+        for result in self.results:
+            self.history_entry.emit(
+                {
+                    "name": result.source.name,
+                    "path": str(result.source),
+                    "output": str((result.japanese_pdf or result.bilingual_pdf).parent),
+                    "status": "翻訳完了",
+                    "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                }
+            )
+
+    def _show_result(self, position: int) -> None:
+        """Show the summary, files and preview of one translated PDF."""
+        if not 0 <= position < len(self.results):
+            return
+        result = self.results[position]
+        self.result = result
         parts = [tr("{pages}ページ").format(pages=result.pages)]
         if result.ocr_pages:
             parts.append(tr("OCR {count}ページ").format(count=result.ocr_pages))
@@ -1225,19 +1418,19 @@ class PdfTranslatePage(QWidget):
             f"{tr(self.source_combo.currentText())} → {tr(language(options.target_lang).label)}"
         )
         parts.append(tr(style_label(options.style, options.target_lang)))
-        self.done_detail.setText(" · ".join(parts))
+        lines = [" · ".join(parts)]
+        if len(self.sources) > 1:
+            lines.insert(
+                0,
+                tr("{done}/{count}件のPDFを翻訳しました").format(
+                    done=len(self.results), count=len(self.sources)
+                ),
+            )
+        if self.failure_text:
+            lines += [tr("翻訳できなかったPDF:"), self.failure_text]
+        self.done_detail.setText("\n".join(lines))
         self._populate_files(result)
         self._show_preview(0)
-        self.show_state("done")
-        self.history_entry.emit(
-            {
-                "name": result.source.name,
-                "path": str(result.source),
-                "output": str((result.japanese_pdf or result.bilingual_pdf).parent),
-                "status": "翻訳完了",
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            }
-        )
 
     def _failed(self, message: str) -> None:
         self._stop_thread()
@@ -1317,7 +1510,7 @@ class PdfTranslatePage(QWidget):
         result = self.result
         if result is None:
             return
-        first = 1 if self.all_pages_check.isChecked() else self.first_page.value()
+        first = self._first_page()
         before = PdfSide(result.source, first - 1)
         if result.japanese_pdf is not None:
             after = PdfSide(result.japanese_pdf)
@@ -1331,6 +1524,12 @@ class PdfTranslatePage(QWidget):
         self.compare_viewer = viewer
         viewer.showMaximized()
 
+    def _first_page(self) -> int:
+        """First translated page (1-based); a range is only offered for a single PDF."""
+        if self.all_pages_check.isChecked() or len(self.sources) > 1:
+            return 1
+        return self.first_page.value()
+
     def _open_output_folder(self) -> None:
         if self.result is None:
             return
@@ -1341,7 +1540,7 @@ class PdfTranslatePage(QWidget):
         result = self.result
         if result is None:
             return
-        first = 1 if self.all_pages_check.isChecked() else self.first_page.value()
+        first = self._first_page()
         index = max(0, min(result.pages - 1, index))
         self.preview_index = index
         ratio = self.devicePixelRatioF()
@@ -1366,12 +1565,11 @@ class PdfTranslatePage(QWidget):
             event.acceptProposedAction()
 
     def dropEvent(self, event) -> None:
-        for url in event.mimeData().urls():
-            path = Path(url.toLocalFile())
-            if path.suffix.lower() == ".pdf":
-                self.set_source(path)
-                event.acceptProposedAction()
-                return
+        paths = [Path(url.toLocalFile()) for url in event.mimeData().urls()]
+        pdfs = [path for path in paths if path.suffix.lower() == ".pdf"]
+        if pdfs:
+            self.set_sources(pdfs)
+            event.acceptProposedAction()
 
 
 def error_hint(message: str) -> str:

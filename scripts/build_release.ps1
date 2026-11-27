@@ -170,6 +170,7 @@ try {
     $ReleaseNotes = @"
 Lectavo $Version
 
+- 0.5.2: Parallel PDF translation; equations kept; subscripts and superscripts kept; no overlapping text; continuous scrolling in the comparison view; installer checkbox fixed.
 - 0.5.1: Cover pages translated, reference lists kept, shifted answers retried; Gemma 4 12B default; scroll to turn pages; shortcut boxes checked on updates.
 - 0.5.0: PDF translation (17 languages, layout kept, bilingual PDF, OCR, built-in local LLM, full-screen comparison).
 - 0.4.5: Startup splash for faster-feeling launch; fixed clipped installer checkboxes.

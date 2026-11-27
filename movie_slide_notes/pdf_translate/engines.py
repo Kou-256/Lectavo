@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from threading import Event
 
 from movie_slide_notes.pdf_translate.languages import AUTO, language
+from movie_slide_notes.pdf_translate.markup import from_xml, has_scripts, to_xml
 
 PROVIDERS: dict[str, str] = {
     "builtin": "内蔵ローカルLLM（無料・オフライン）",
@@ -98,7 +99,7 @@ def system_prompt(style: str, source: str, target: str) -> str:
 Each input item is one paragraph, heading, caption or list entry from the same document. Rules:
 - Translate every item; return exactly one translation per id, with the same ids.
 - If an item is already in {target_name}, return it unchanged.
-- Copy markers like ⟦0⟧ exactly, once each, where they belong in the translation; they stand for ions and chemical formulas.
+- Copy markers like ⟦0⟧ exactly, once each, where they belong in the translation; they stand for ions, chemical formulas, subscripts, superscripts and citation marks.
 - Keep numbers, units, chemical formulas, math, variable names, citations like [3] or (Smith et al., 2020), URLs and code unchanged.
 - Translate figure and table labels as {labels}, and section headings concisely.
 - Keep proper nouns that are normally left untranslated (software, gene names, etc.) as they are.
@@ -450,8 +451,10 @@ class DeepLEngine(Engine):
             raise TranslationError("DeepLはこの言語に対応していません。")
         key = self.config.api_key
         url = DEEPL_URL_FREE if key.endswith(":fx") else DEEPL_URL_PRO
+        tagged = any(has_scripts(text) for text in texts)
         body = {
-            "text": texts,
+            # Sub- and superscripts travel as XML tags, which DeepL keeps in place.
+            "text": [to_xml(text) for text in texts] if tagged else texts,
             "target_lang": language(target).deepl_target,
             "preserve_formatting": True,
         }
@@ -461,6 +464,8 @@ class DeepLEngine(Engine):
             body["formality"] = "prefer_more"
         if context:
             body["context"] = context
+        if tagged:
+            body["tag_handling"] = "xml"
 
         def call():
             try:
@@ -486,7 +491,7 @@ class DeepLEngine(Engine):
         translations = [item.get("text", "") for item in data.get("translations", [])]
         if len(translations) != len(texts):
             raise TranslationError("DeepLの翻訳結果の件数が一致しません。")
-        return translations
+        return [from_xml(text) for text in translations] if tagged else translations
 
 
 def create_engine(config: EngineConfig) -> Engine:

@@ -8,6 +8,16 @@
 
 <p align="center"><a href="https://lectavo.vercel.app"><strong>Website</strong></a> ・ <a href="https://github.com/Kou-256/Lectavo/releases/latest"><strong>Download latest release</strong></a> ・ <a href="README.md">日本語</a> ・ English</p>
 
+## New in 0.5.2
+
+- **Translate several PDFs at once**: pick multiple PDFs and translate them in parallel, as with video analysis.
+- **Equations are kept as is**: formulas are left untranslated so the layout stays intact.
+- **Subscripts and superscripts are kept**: Eu<sub>2</sub>O<sub>3</sub>, Eu<sup>3+</sup>, μ(x), and citation marks are drawn small and raised or lowered in the translation.
+- Fixed translated text overlapping the next paragraph.
+- **Comparison view**: all pages scroll continuously and smoothly; with "Sync scrolling" off, each side scrolls on its own.
+- Fixed a clipped checkbox on the installer's finish page.
+- Download `Lectavo-setup-0.5.2-x64.exe`.
+
 ## New in 0.5.1
 
 - **More accurate PDF translation**: pages embedded as a single graphic, such as journal cover pages, are now translated. Reference lists stay in the original language so the layout is kept.
@@ -15,7 +25,6 @@
 - **Gemma 4 12B is the default built-in model**: until it is downloaded, a model already on your PC is used.
 - **Comparison view**: scrolling past the end of a page moves to the next (or previous) page; the page number box no longer has up/down arrows.
 - The installer's desktop and Start Menu shortcut boxes are checked on every update.
-- Download `Lectavo-setup-0.5.1-x64.exe`.
 
 ## New in 0.5.0
 
@@ -126,7 +135,7 @@ Lectavo is a Windows desktop application that turns lecture and presentation vid
 
 ## Download
 
-Download `Lectavo-setup-0.5.1-x64.exe` from the [latest GitHub Release](https://github.com/Kou-256/Lectavo/releases/latest). The installed application does not require Python, pip, Git, a virtual environment, or a separate `ffmpeg.exe`.
+Download `Lectavo-setup-0.5.2-x64.exe` from the [latest GitHub Release](https://github.com/Kou-256/Lectavo/releases/latest). The installed application does not require Python, pip, Git, a virtual environment, or a separate `ffmpeg.exe`.
 
 - Windows 10 / 11 x64
 - Japanese UI by default
@@ -135,11 +144,11 @@ Download `Lectavo-setup-0.5.1-x64.exe` from the [latest GitHub Release](https://
 - GPU optional; CPU-only operation is supported
 - Desktop and Start Menu shortcuts enabled by default (checked again on every update)
 
-The current `0.5.1` binary is self-signed (publisher "Lectavo / Kou Hashizume"). Because the certificate is not from a trusted authority, Windows SmartScreen or an "unknown publisher" prompt may still appear. Compare the download with the SHA-256 value attached to the release.
+The current `0.5.2` binary is self-signed (publisher "Lectavo / Kou Hashizume"). Because the certificate is not from a trusted authority, Windows SmartScreen or an "unknown publisher" prompt may still appear. Compare the download with the SHA-256 value attached to the release.
 
 ## Basic use
 
-1. Run `Lectavo-setup-0.5.1-x64.exe`.
+1. Run `Lectavo-setup-0.5.2-x64.exe`.
 2. Launch Lectavo from the desktop or Start Menu.
 3. Add videos with the file button, folder link, or drag and drop.
 4. Choose combined output or per-video output.

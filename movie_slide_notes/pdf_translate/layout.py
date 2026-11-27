@@ -7,7 +7,9 @@ import re
 from collections import Counter
 from pathlib import Path
 from statistics import median
+from threading import RLock
 
+from movie_slide_notes.pdf_translate.markup import strip_tags
 from movie_slide_notes.pdf_translate.models import PageInfo, TextBlock
 
 SERIF_HINTS = (
@@ -37,8 +39,40 @@ _YEAR = re.compile(r"\((?:19|20)\d{2}[a-z]?\)|\b(?:19|20)\d{2}[a-z]?[.;,)]")
 # "Nat. Mater. 2, 180 (2003)": volume, page and year.
 _CITATION = re.compile(r"\b\d{1,4},\s*[A-Z]?\d{1,8}\s*\((?:19|20)\d{2}\)")
 _CAMEL = re.compile(r"[a-z][A-Z]")
+# PDFium must not be called from two threads at once; several PDFs can be
+# translated side by side, so every call goes through this lock.
+PDFIUM_LOCK = RLock()
 # A figure covering most of the page is a whole page wrapped in a form, not an illustration.
 PAGE_WRAPPER_COVERAGE = 0.6
+# Fonts used for formulas (TeX, STIX, Euclid, MathType, Cambria Math...).
+MATH_FONT_HINTS = (
+    "symbol",
+    "stix",
+    "math",
+    "cmmi",
+    "cmsy",
+    "cmex",
+    "cmbsy",
+    "euclid",
+    "mtextra",
+    "mt-extra",
+    "mtsy",
+    "mtmi",
+    "esstix",
+    "msam",
+    "msbm",
+    "rsfs",
+    "eufm",
+    "eusm",
+    "txsy",
+    "txmi",
+    "pxsy",
+    "pxmi",
+    "xits",
+)
+ITALIC_HINTS = ("italic", "oblique", "-it", ",it", "cmti", "cmmi")
+_RELATION = re.compile(r"[=<>≤≥≈≠∝∑∏∫√±∓×÷]")
+_EQUATION_NUMBER = re.compile(r"^\(\s*\d{1,3}\s*[a-z]?\s*\)$")
 
 
 def normalize_pdf(source: Path) -> bytes:
@@ -207,14 +241,221 @@ def split_by_size(lines: list) -> list[list]:
     return groups
 
 
+def _font_base(fontname: str) -> str:
+    return (fontname or "").split("+", 1)[-1].lower()
+
+
+def is_math_line(line) -> bool:
+    """True for a line of a displayed formula, which is left as it is.
+
+    A line is a formula when most of its characters use math fonts or are
+    single italic letters (variables), or when it has a relation sign such as
+    "=" but hardly any ordinary words.
+    """
+    from pdfminer.layout import LTChar
+
+    tokens: list[list] = [[]]
+    for item in line:
+        if isinstance(item, LTChar) and item.get_text().strip():
+            tokens[-1].append(item)
+        elif tokens[-1]:
+            tokens.append([])
+    tokens = [token for token in tokens if token]
+    total = sum(len(token) for token in tokens)
+    if not total:
+        return False
+    text = "".join(c.get_text() for token in tokens for c in token)
+    if _EQUATION_NUMBER.match(text):
+        return True
+    math = 0
+    words = 0
+    for token in tokens:
+        fonts = [_font_base(c.fontname) for c in token]
+        math_font = [any(hint in font for hint in MATH_FONT_HINTS) for font in fonts]
+        letters = sum(1 for c in token if c.get_text().isalpha())
+        italic = all(any(hint in font for hint in ITALIC_HINTS) for font in fonts)
+        if italic and letters <= 2:
+            math += len(token)
+            continue
+        math += sum(math_font)
+        plain = "".join(c.get_text() for c, m in zip(token, math_font, strict=True) if not m)
+        words += len(re.findall(r"[^\W\d_]{3,}", plain))
+    if math / total >= 0.5:
+        return True
+    return bool(_RELATION.search(text)) and words < 2
+
+
+def split_math(lines: list) -> list[list]:
+    """Split a text box around formula lines, dropping the formulas themselves."""
+    groups: list[list] = [[]]
+    for line in lines:
+        if is_math_line(line):
+            if groups[-1]:
+                groups.append([])
+        else:
+            groups[-1].append(line)
+    return [group for group in groups if group]
+
+
+def _main_font(lines: list) -> str:
+    from pdfminer.layout import LTChar
+
+    fonts = Counter(_font_base(c.fontname) for line in lines for c in line if isinstance(c, LTChar))
+    return fonts.most_common(1)[0][0] if fonts else ""
+
+
+def merge_orphans(boxes: list[list]) -> list[list]:
+    """Join a one-line box to the paragraph right above or below it.
+
+    pdfminer sometimes cuts the first or last line of a paragraph into its own
+    box (for example next to a formula). Translated alone, that line has to be
+    squeezed into a single line of the page.
+    """
+    merged = [list(lines) for lines in boxes]
+    changed = True
+    while changed:
+        changed = False
+        for i, upper in enumerate(merged):
+            for j, lower in enumerate(merged):
+                if i == j or (len(upper) > 1 and len(lower) > 1):
+                    continue
+                ux0, uy0, ux1, _uy1 = _bbox(upper)
+                lx0, _ly0, lx1, ly1 = _bbox(lower)
+                height = median(line.y1 - line.y0 for line in upper + lower)
+                gap = uy0 - ly1
+                overlap = min(ux1, lx1) - max(ux0, lx0)
+                narrower = max(1e-6, min(ux1 - ux0, lx1 - lx0))
+                if not (-0.5 * height <= gap <= 0.6 * height):
+                    continue
+                if overlap < 0.5 * narrower or abs(ux0 - lx0) > 2.5 * height:
+                    continue
+                sizes = (
+                    median(_line_size(line) for line in upper),
+                    median(_line_size(line) for line in lower),
+                )
+                if min(sizes) <= 0 or not (0.85 <= sizes[0] / sizes[1] <= 1.18):
+                    continue
+                if _main_font(upper) != _main_font(lower):
+                    continue
+                upper.extend(lower)
+                del merged[j]
+                changed = True
+                break
+            if changed:
+                break
+    return merged
+
+
+# Adobe Symbol encoding: fonts such as Symbol or Euclid Symbol without a Unicode
+# map are read as Latin letters ("m" for μ, "s" for σ).
+_SYMBOL_GREEK = dict(
+    zip(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        "αβχδεφγηιϕκλμνοπθρστυϖωξψζΑΒΧΔΕΦΓΗΙϑΚΛΜΝΟΠΘΡΣΤΥςΩΞΨΖ",
+        strict=True,
+    )
+)
+# A character this much smaller than the line's text, and off its baseline, is a script.
+SCRIPT_SIZE = 0.85
+
+
+def _char_text(char) -> str:
+    text = char.get_text()
+    font = _font_base(char.fontname)
+    if len(text) == 1 and text in _SYMBOL_GREEK and "symbol" in font and "seg" not in font:
+        return _SYMBOL_GREEK[text]
+    return text
+
+
+def line_markup(line) -> str:
+    """The line's text in left-to-right order, with sub- and superscripts tagged.
+
+    ``Eu2O3`` set with small lowered digits becomes ``Eu<sub>2</sub>O<sub>3</sub>``;
+    a raised citation ``process.22)`` becomes ``process.<sup>22)</sup>``.
+    """
+    from pdfminer.layout import LTChar
+
+    # Where pdfminer put a space (in its own order), to keep word breaks.
+    spaced: set[int] = set()
+    pending_space = False
+    for item in line:
+        if isinstance(item, LTChar) and item.get_text().strip():
+            if pending_space:
+                spaced.add(id(item))
+            pending_space = False
+        elif item.get_text().isspace() and item.get_text() != "\n":
+            pending_space = True
+    chars = sorted(
+        (c for c in line if isinstance(c, LTChar) and c.get_text().strip()),
+        key=lambda c: c.x0,
+    )
+    if not chars:
+        return line.get_text()
+    sizes = Counter(round(c.size, 1) for c in chars)
+    main = max(size for size, count in sizes.items() if count == max(sizes.values()))
+    # The box bottom sits a font-specific fraction of the size below the baseline;
+    # learn it from the line's regular characters. (Text rise is not in ``matrix``.)
+    regular = [c for c in chars if abs(c.size - main) < 0.3] or chars
+    descent = median((c.y0 - c.matrix[5]) / max(c.size, 1e-6) for c in regular)
+    base = median(c.y0 - descent * c.size for c in regular)
+    origin = median(c.matrix[5] for c in regular)
+
+    def style(char) -> str:
+        if char.size > main * SCRIPT_SIZE:
+            return ""
+        # Scripts placed by moving the text position show in ``matrix``; those
+        # raised with text rise only in the box (whose depth depends on the font).
+        offset = char.matrix[5] - origin
+        if abs(offset) < 0.05 * main:
+            offset = char.y0 - descent * char.size - base
+        if offset > 0.15 * main:
+            return "sup"
+        if offset < -0.05 * main:
+            return "sub"
+        return ""
+
+    text = ""
+    current = ""
+    previous = None
+    for char in chars:
+        kind = style(char)
+        if previous is not None:
+            gap = char.x0 - previous.x1
+            size = min(previous.size, char.size)
+            if gap > 0.3 * size or (id(char) in spaced and gap > 0.03 * size):
+                if current:
+                    text += f"</{current}>"
+                    current = ""
+                text += " "
+        if kind != current:
+            if current:
+                text += f"</{current}>"
+            if kind:
+                text += f"<{kind}>"
+            current = kind
+        text += _char_text(char)
+        previous = char
+    if current:
+        text += f"</{current}>"
+    # Math fonts space parentheses widely: "μ (x )" -> "μ(x)".
+    text = re.sub(r"(?<![\w>])([^\W\d_]) \((?=\S{1,3} ?\))", r"\1(", text)
+    return re.sub(r"\((\S{1,3}) \)", r"(\1)", text)
+
+
+def reading_order(lines: list) -> list:
+    """Top to bottom; pieces of one line (pdfminer splits some) left to right."""
+    return sorted(lines, key=lambda line: (-round((line.y0 + line.y1) / 2 / 3), line.x0))
+
+
 def _block_from_lines(index: int, lines: list, page_width: float) -> TextBlock | None:
     from pdfminer.layout import LTChar
 
     chars = [c for line in lines for c in line if isinstance(c, LTChar)]
     if not chars:
         return None
-    text = join_lines([line.get_text() for line in lines])
-    if not should_translate(text) or looks_like_reference(text):
+    text = join_lines([line_markup(line) for line in reading_order(lines)])
+    plain = strip_tags(text)
+    if not should_translate(plain) or looks_like_reference(plain):
         return None
     sizes = [c.size for c in chars if c.size > 0]
     bold, serif = _font_flags([c.fontname for c in chars])
@@ -328,8 +569,8 @@ def extract_text_pages(
             if isinstance(item, LTTextBox) and not inside_figure:
                 lines = [line for line in item if any(isinstance(c, LTChar) for c in line)]
                 char_count += sum(1 for line in lines for c in line if isinstance(c, LTChar))
-                if lines:
-                    boxes.append(lines)
+                # Formulas stay in the original; the prose around them is translated.
+                boxes.extend(split_math(lines))
                 return
             if hasattr(item, "__iter__"):
                 for child in item:
@@ -338,7 +579,7 @@ def extract_text_pages(
         boxes: list[list] = []
         for element in layout:
             walk(element)
-        for lines in merge_contained(boxes):
+        for lines in merge_orphans(merge_contained(boxes)):
             for group in split_by_size(lines):
                 block = _block_from_lines(index, group, page_width)
                 if block is not None:
@@ -357,17 +598,20 @@ class PageRenderer:
     def __init__(self, pdf_bytes: bytes):
         import pypdfium2 as pdfium
 
-        self._document = pdfium.PdfDocument(pdf_bytes)
+        with PDFIUM_LOCK:
+            self._document = pdfium.PdfDocument(pdf_bytes)
 
     def render(self, index: int, scale: float):
-        page = self._document[index]
-        try:
-            return page.render(scale=scale).to_pil().convert("RGB")
-        finally:
-            page.close()
+        with PDFIUM_LOCK:
+            page = self._document[index]
+            try:
+                return page.render(scale=scale).to_pil().convert("RGB")
+            finally:
+                page.close()
 
     def close(self) -> None:
-        self._document.close()
+        with PDFIUM_LOCK:
+            self._document.close()
 
     def __enter__(self) -> PageRenderer:
         return self

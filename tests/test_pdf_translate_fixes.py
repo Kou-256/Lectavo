@@ -153,47 +153,293 @@ class CompareViewerTests(unittest.TestCase):
 
         cls.app = QApplication.instance() or QApplication([])
 
-    def test_scrolling_past_a_page_turns_it_and_the_spin_box_has_no_arrows(self) -> None:
-        from PySide6.QtWidgets import QAbstractSpinBox
+    def _viewer(self, folder: str, pages: int = 4):
         from test_pdf_translate import make_paper
 
-        from movie_slide_notes.gui import compare_viewer
         from movie_slide_notes.gui.compare_viewer import CompareViewer, PdfSide
 
+        source = Path(folder) / "paper.pdf"
+        make_paper(source, pages=pages)
+        viewer = CompareViewer(PdfSide(source), PdfSide(source), pages=pages)
+        viewer.resize(900, 700)
+        viewer.show()
+        self.app.processEvents()
+        viewer.set_fit("width")
+        self.app.processEvents()
+        return viewer
+
+    def test_pages_scroll_continuously_and_the_page_number_follows(self) -> None:
+        from PySide6.QtWidgets import QAbstractSpinBox
+
         with tempfile.TemporaryDirectory() as folder:
-            source = Path(folder) / "paper.pdf"
-            make_paper(source, pages=3)
-            viewer = CompareViewer(PdfSide(source), PdfSide(source), pages=3)
-            viewer.resize(900, 700)
-            viewer.show()
-            self.app.processEvents()
-            viewer.go_to(0)
+            viewer = self._viewer(folder)
             self.assertEqual(viewer.page_spin.buttonSymbols(), QAbstractSpinBox.NoButtons)
+            left, right = viewer.panes
+            # All pages sit one below the other in one scroll range.
+            self.assertGreater(left.bar.maximum(), 2 * left.pages[0].height())
+            self.assertLess(left.pages[0].y(), left.pages[1].y())
 
-            viewport = viewer.panes[0].scroll.viewport()
-            bar = viewer.panes[0].scroll.verticalScrollBar()
-            bar.setValue(bar.maximum())
-            self.assertTrue(viewer._turn_page_by_wheel(viewport, -120))
-            self.assertEqual(viewer.index, 1)
-            self.assertEqual(bar.value(), 0)
-
-            # A second flick right away does not skip a page.
-            bar.setValue(bar.maximum())
-            viewer._turn_page_by_wheel(viewport, -120)
-            self.assertEqual(viewer.index, 1)
-
-            viewer._last_turn -= compare_viewer.PAGE_TURN_PAUSE
-            bar.setValue(bar.minimum())
-            self.assertTrue(viewer._turn_page_by_wheel(viewport, 120))
-            self.assertEqual(viewer.index, 0)
+            left.bar.setValue(left.pages[2].y() + 10)
             self.app.processEvents()
-            self.assertEqual(bar.value(), bar.maximum())
+            self.assertEqual(viewer.index, 2)
+            self.assertEqual(viewer.page_spin.value(), 3)
+            self.assertEqual(right.position()[0], 2)  # scrolled together
+            self.assertIsNotNone(left.pages[2].pixmap())
 
-            # Within a page, the wheel scrolls as usual.
-            if bar.maximum() > 0:
-                bar.setValue(bar.maximum() // 2)
-                self.assertFalse(viewer._turn_page_by_wheel(viewport, -120))
+            viewer.go_to(1)
+            self.assertEqual(left.current_page(), 1)
+            self.assertEqual(right.current_page(), 1)
             viewer.close()
+
+    def test_sides_scroll_on_their_own_when_not_linked(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            viewer = self._viewer(folder)
+            left, right = viewer.panes
+            viewer.sync_check.setChecked(False)
+            before = right.bar.value()
+            left.bar.setValue(left.pages[2].y())
+            self.app.processEvents()
+            self.assertEqual(right.bar.value(), before)
+            self.assertEqual(viewer.index, 2)
+            # Zooming keeps each side where it was.
+            viewer.zoom_in()
+            self.assertEqual(left.position()[0], 2)
+            self.assertEqual(right.position()[0], 0)
+            # Linking again brings the other side to the same page.
+            viewer.sync_check.setChecked(True)
+            self.assertEqual(right.position()[0], 2)
+            viewer.close()
+
+
+def make_formula_page(path: Path) -> None:
+    """Prose, a displayed equation in math fonts with its number, then more prose."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen.canvas import Canvas
+
+    width, height = A4
+    canvas = Canvas(str(path), pagesize=A4)
+    y = height - 100
+    canvas.setFont("Times-Roman", 10)
+    for line in (
+        "The upper confidence bound is a typical acquisition function in",
+        "Bayesian optimization and is defined as follows:",
+    ):
+        canvas.drawString(60, y, line)
+        y -= 12
+    x = 120
+    for font, text in [
+        ("Times-Roman", "UCB"),
+        ("Symbol", "("),
+        ("Times-Italic", "x"),
+        ("Symbol", ") = m("),
+        ("Times-Italic", "x"),
+        ("Symbol", ") + ks("),
+        ("Times-Italic", "x"),
+        ("Symbol", ")"),
+    ]:
+        canvas.setFont(font, 10)
+        canvas.drawString(x, y, text)
+        x += canvas.stringWidth(text, font, 10) + 1
+    canvas.setFont("Times-Roman", 10)
+    canvas.drawString(270, y, "(1)")
+    y -= 16
+    for line in (
+        "where the predicted mean and the standard deviation come from the",
+        "Gaussian process regression of all measurements made so far.",
+    ):
+        canvas.drawString(60, y, line)
+        y -= 12
+    canvas.showPage()
+    canvas.save()
+
+
+class FormulaAndFittingTests(unittest.TestCase):
+    def test_displayed_formulas_are_left_as_they_are(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "formula.pdf"
+            make_formula_page(source)
+            blocks, _chars, _coverage = extract_text_pages(normalize_pdf(source), [0])[0]
+        texts = [block.text for block in blocks]
+        self.assertTrue(any("defined as follows:" in text for text in texts), texts)
+        self.assertTrue(any("Gaussian process regression" in text for text in texts), texts)
+        for text in texts:
+            self.assertNotIn("=", text)
+            self.assertNotIn("(1)", text)
+
+    def test_translated_text_stays_inside_its_box(self) -> None:
+        from movie_slide_notes.pdf_translate.models import TextBlock
+        from movie_slide_notes.pdf_translate.writer import fit_text, font_name
+
+        font = font_name("LectavoGothic")
+        block = TextBlock(page_index=0, x0=50, y0=400, x1=290, y1=610, text="x", font_size=10)
+        for repeat in (5, 12, 20, 40):
+            text = "ベイズ最適化によって組成の探索を加速することが期待されている。" * repeat
+            fitted = fit_text(text, font, block)
+            used = fitted.size + (len(fitted.lines) - 1) * fitted.size * fitted.leading
+            self.assertLessEqual(used, block.height + 0.5 + 1e-6, repeat)
+
+
+def make_script_page(path: Path) -> None:
+    """Chemical formulas with lowered digits, an ion charge and a raised citation."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen.canvas import Canvas
+
+    width, height = A4
+    canvas = Canvas(str(path), pagesize=A4)
+    text = canvas.beginText(60, height - 100)
+    for content, size, rise, font in [
+        ("Thin films of Eu", 10, 0, "Times-Roman"),
+        ("2", 7, -2, "Times-Roman"),
+        ("O", 10, 0, "Times-Roman"),
+        ("3", 7, -2, "Times-Roman"),
+        (" doped with Eu", 10, 0, "Times-Roman"),
+        ("3+", 7, 4, "Times-Roman"),
+        (" were grown and the mean was taken.", 10, 0, "Times-Roman"),
+        ("12)", 7, 4, "Times-Roman"),
+    ]:
+        text.setFont(font, size)
+        text.setRise(rise)
+        text.textOut(content)
+    canvas.drawText(text)
+    canvas.showPage()
+    canvas.save()
+
+
+class ScriptTests(unittest.TestCase):
+    def test_sub_and_superscripts_are_tagged_and_kept_through_translation(self) -> None:
+        from movie_slide_notes.pdf_translate.protect import protect, restore
+
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "scripts.pdf"
+            make_script_page(source)
+            blocks, _chars, _coverage = extract_text_pages(normalize_pdf(source), [0])[0]
+        self.assertEqual(len(blocks), 1)
+        text = blocks[0].text
+        self.assertIn("Eu<sub>2</sub>O<sub>3</sub>", text)
+        self.assertIn("Eu<sup>3+</sup>", text)
+        self.assertTrue(text.endswith("taken.<sup>12)</sup>"), text)
+        # Letters of a Symbol font without a Unicode map are Greek.
+        from movie_slide_notes.pdf_translate.layout import _char_text
+
+        symbol = SimpleNamespace(get_text=lambda: "m", fontname="ABCDEF+EuclidSymbol-Italic")
+        self.assertEqual(_char_text(symbol), "μ")
+
+        protected, tokens = protect(text)
+        self.assertNotIn("<su", protected)
+        self.assertIn("Eu<sub>2</sub>O<sub>3</sub>", tokens)
+        self.assertEqual(restore(protected, tokens), text)
+        # An ordinary word before a citation mark is still translated.
+        protected, tokens = protect("as reported previously.<sup>22,23)</sup>")
+        self.assertIn("previously.", protected)
+
+    def test_scripts_are_drawn_smaller_and_off_the_baseline(self) -> None:
+        from movie_slide_notes.pdf_translate.writer import (
+            SCRIPT_SCALE,
+            encode_scripts,
+            font_name,
+            text_width,
+            wrap_text,
+        )
+
+        font = font_name("LectavoGothic")
+        encoded, spans = encode_scripts(
+            "薄膜Eu<sub>2</sub>O<sub>3</sub>とEu<sup>3+</sup>イオン<sub>"
+        )
+        self.assertNotIn("<", encoded)  # the stray tag is dropped
+        self.assertEqual([kind for kind, _ in spans.values()], ["sub", "sub", "sup"])
+        one = text_width(next(iter(spans)), font, 10, spans)
+        self.assertAlmostEqual(one, text_width("2", font, 10 * SCRIPT_SCALE), places=3)
+        lines = wrap_text(encoded * 6, font, 10, 80, spans)
+        self.assertEqual("".join(lines), encoded * 6)  # a formula is never split inside a span
+
+    def test_deepl_gets_tags_as_xml(self) -> None:
+        from movie_slide_notes.pdf_translate.markup import from_xml, to_xml
+
+        text = "If f > τ, Eu<sub>2</sub>O<sub>3</sub> & Y<sub>2</sub>O<sub>3</sub>"
+        xml = to_xml(text)
+        self.assertIn("f &gt; τ", xml)
+        self.assertIn("<sub>2</sub>", xml)
+        self.assertEqual(from_xml(xml), text)
+
+
+class BatchTranslationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        from PySide6.QtWidgets import QApplication
+
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_several_pdfs_are_translated_side_by_side(self) -> None:
+        import threading
+        import time
+        from unittest.mock import patch
+
+        from test_pdf_translate import make_paper
+
+        from movie_slide_notes.gui import pdf_translate_page
+
+        class SlowEngine(Engine):
+            def __init__(self):
+                super().__init__(EngineConfig("local"))
+                self.lock = threading.Lock()
+                self.active = 0
+                self.most = 0
+                self.sources = set()
+
+            def translate(self, texts, style, context="", source="auto", target="ja"):
+                with self.lock:
+                    self.active += 1
+                    self.most = max(self.most, self.active)
+                time.sleep(0.15)
+                with self.lock:
+                    self.active -= 1
+                return ["翻訳された文章です。" * max(1, len(text) // 20) for text in texts]
+
+        engine = SlowEngine()
+        with tempfile.TemporaryDirectory() as folder:
+            jobs = []
+            for name in ("a", "b", "c"):
+                source = Path(folder) / f"{name}.pdf"
+                make_paper(source, pages=1)
+                jobs.append((source, Path(folder) / "out"))
+            worker = pdf_translate_page.PdfTranslateWorker(
+                jobs, PdfTranslationOptions(make_bilingual=False), EngineConfig("local")
+            )
+            finished, done = [], []
+            worker.finished.connect(finished.append)
+            worker.file_done.connect(lambda position, error: done.append((position, error)))
+            with (
+                patch.object(pdf_translate_page, "create_engine", return_value=engine),
+                patch.object(pdf_translate_page, "translation_cache_path", return_value=None),
+            ):
+                worker.run()
+            self.assertEqual(len(finished), 1)
+            results = [result for result, _error in finished[0]]
+            self.assertEqual([r.source.name for r in results], ["a.pdf", "b.pdf", "c.pdf"])
+            self.assertTrue(all(r.japanese_pdf.exists() for r in results))
+            self.assertEqual(sorted(position for position, _ in done), [0, 1, 2])
+        self.assertGreaterEqual(engine.most, 2)  # two PDFs were translated at once
+
+    def test_choosing_several_pdfs_hides_the_page_range(self) -> None:
+        from PySide6.QtCore import QSettings
+        from test_pdf_translate import make_paper
+
+        from movie_slide_notes.gui.pdf_translate_page import EngineSettings, PdfTranslatePage
+
+        with tempfile.TemporaryDirectory() as folder:
+            settings = QSettings(str(Path(folder) / "s.ini"), QSettings.IniFormat)
+            page = PdfTranslatePage(settings, EngineSettings(settings))
+            sources = []
+            for name in ("a", "b"):
+                sources.append(Path(folder) / f"{name}.pdf")
+                make_paper(sources[-1], pages=1)
+            self.assertTrue(page.set_sources(sources))
+            self.assertEqual(page.sources, sources)
+            self.assertTrue(page.range_row.isHidden())
+            self.assertIn("2", page.file_name.text())
+            self.assertTrue(page.set_sources(sources[:1]))
+            self.assertFalse(page.range_row.isHidden())
+            del page, settings
 
 
 class DefaultModelTests(unittest.TestCase):

@@ -75,7 +75,7 @@ Filename: "{app}\Lectavo.exe"; Description: "{cm:LaunchProgram,Lectavo}"; Flags:
 [Code]
 var
   TasksHeading: TNewStaticText;
-  DesktopIconCheck, StartMenuCheck: TNewCheckBox;
+  DesktopIconCheck, StartMenuCheck, LaunchCheck: TNewCheckBox;
 
 function CreateTaskCheckBox(const Caption: String; Row: Integer): TNewCheckBox;
 begin
@@ -109,6 +109,13 @@ begin
     WizardForm.TasksList.Left, WizardForm.TasksList.Top, WizardForm.TasksList.Width, ScaleY(20));
   DesktopIconCheck := CreateTaskCheckBox(ExpandConstant('{cm:CreateDesktopIcon}'), 0);
   StartMenuCheck := CreateTaskCheckBox(ExpandConstant('{cm:StartMenuTask}'), 1);
+
+  { The "Launch Lectavo" box on the last page is clipped the same way. }
+  LaunchCheck := TNewCheckBox.Create(WizardForm);
+  LaunchCheck.Parent := WizardForm.FinishedPage;
+  LaunchCheck.Caption := ExpandConstant('{cm:LaunchProgram,Lectavo}');
+  LaunchCheck.Checked := True;
+  LaunchCheck.Visible := False;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
@@ -117,6 +124,18 @@ begin
   begin
     DesktopIconCheck.Checked := WizardIsTaskSelected('desktopicon');
     StartMenuCheck.Checked := WizardIsTaskSelected('startmenuicon');
+  end;
+  if (CurPageID = wpFinished) and WizardForm.RunList.Visible
+    and (WizardForm.RunList.Items.Count > 0) then
+  begin
+    LaunchCheck.SetBounds(
+      WizardForm.RunList.Left,
+      WizardForm.RunList.Top,
+      WizardForm.RunList.Width,
+      ScaleY(24));
+    LaunchCheck.Checked := WizardForm.RunList.Checked[0];
+    LaunchCheck.Visible := True;
+    WizardForm.RunList.Visible := False;
   end;
 end;
 
@@ -130,5 +149,7 @@ begin
     if StartMenuCheck.Checked then Tasks := Tasks + ',startmenuicon' else Tasks := Tasks + ',!startmenuicon';
     WizardSelectTasks(Tasks);
   end;
+  if (CurPageID = wpFinished) and LaunchCheck.Visible then
+    WizardForm.RunList.Checked[0] := LaunchCheck.Checked;
   Result := True;
 end;
