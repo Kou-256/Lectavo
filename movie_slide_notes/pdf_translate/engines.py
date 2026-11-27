@@ -149,7 +149,11 @@ def needs_api_key(provider: str) -> bool:
 
 def _items_payload(texts: list[str], context: str) -> str:
     items = [{"id": index, "text": text} for index, text in enumerate(texts)]
-    header = f"Document: {context}\n\n" if context else ""
+    header = (
+        f"Document title (only for consistent terms; never add it to a translation): {context}\n\n"
+        if context
+        else ""
+    )
     return header + "Translate these items:\n" + json.dumps({"items": items}, ensure_ascii=False)
 
 

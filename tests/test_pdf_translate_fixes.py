@@ -146,6 +146,128 @@ class ShiftedAnswerTests(unittest.TestCase):
         self.assertGreaterEqual(engine.single_calls, 2)
 
 
+def make_heading_page(path: Path) -> None:
+    """Bold section headings set right above and between paragraphs, as in journal papers."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen.canvas import Canvas
+
+    width, height = A4
+    canvas = Canvas(str(path), pagesize=A4)
+    y = height - 100
+    for heading, paragraph in (
+        (
+            "3.1. Phosphor properties of the composition-gradient film",
+            (
+                "An oxide composition-gradient film with a thickness of 80 nm was prepared using",
+                "combinatorial pulsed laser deposition. Measurements of the film revealed that the",
+                "composition was continuously varied with respect to the sample position on it.",
+            ),
+        ),
+        (
+            "3.2. Bayesian optimization of phosphor properties",
+            (
+                "Bayesian optimization is an established method for black-box optimization and",
+                "was used here to find the composition with the strongest emission in few steps.",
+            ),
+        ),
+    ):
+        canvas.setFont("Helvetica-Bold", 10)
+        canvas.drawString(60, y, heading)
+        canvas.setFont("Times-Roman", 10)
+        for line in paragraph:
+            y -= 12
+            canvas.drawString(60, y, line)
+        y -= 12
+    canvas.showPage()
+    canvas.save()
+
+
+class DroppedTextTests(unittest.TestCase):
+    def test_a_heading_is_split_off_its_paragraph(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "heading.pdf"
+            make_heading_page(source)
+            blocks, _chars, _coverage = extract_text_pages(normalize_pdf(source), [0])[0]
+        texts = sorted((block.text for block in blocks), key=lambda t: t[:3])
+        self.assertEqual(len(texts), 4, texts)
+        starts = sorted(text[:12] for text in texts)
+        self.assertEqual(
+            starts, ["3.1. Phospho", "3.2. Bayesia", "An oxide com", "Bayesian opt"], texts
+        )
+
+    def test_an_answer_that_drops_most_terms_or_text_is_found(self) -> None:
+        source = (
+            "An ⟦0⟧ film was grown on ⟦1⟧. The lattice constant of ⟦2⟧ increased with the "
+            "Eu content because the radius of ⟦3⟧ is larger than that of ⟦4⟧."
+        )
+        self.assertEqual(misaligned([source], ["⟦0⟧膜の性質"]), [0])
+        whole = "⟦0⟧膜を⟦1⟧上に成長させた。⟦3⟧の半径が⟦4⟧より大きいので⟦2⟧の格子定数が増えた。"
+        self.assertEqual(misaligned([source], [whole]), [])
+        long_source = PROSE * 4
+        self.assertEqual(misaligned([long_source], ["蛍光体は照明に使われる。" * 2]), [0])
+
+    def test_a_section_heading_is_not_given_as_the_document_title(self) -> None:
+        from movie_slide_notes.pdf_translate.models import PageInfo, TextBlock
+        from movie_slide_notes.pdf_translate.pipeline import document_context
+
+        def page(*blocks):
+            info = PageInfo(index=0, width=595, height=842)
+            info.blocks = [TextBlock(0, 0, 0, 100, 10, text, size) for text, size in blocks]
+            return info
+
+        body = [(PROSE, 10.0)] * 3
+        heading = page(("2. Experimental methods", 10.5), *body)
+        self.assertEqual(document_context([heading]), "")
+        titled = page(("Accelerating the optimization of phosphor materials", 16.0), *body)
+        self.assertEqual(
+            document_context([titled]), "Accelerating the optimization of phosphor materials"
+        )
+
+    def test_a_paragraph_answered_only_in_part_is_translated_sentence_by_sentence(self) -> None:
+        from movie_slide_notes.pdf_translate.pipeline import sentence_chunks
+
+        class HeadingOnlyEngine(Engine):
+            """Answers a long item with a few words, as small models sometimes do."""
+
+            def __init__(self):
+                super().__init__(EngineConfig("local"))
+                self.pieces = 0
+
+            def translate(self, texts, style, context="", source="auto", target="ja"):
+                if len(texts) == 1 and len(texts[0]) > 300:
+                    return ["見出し"]
+                self.pieces += len(texts)
+                return [f"訳：{text}" for text in texts]
+
+        paragraph = " ".join(
+            f"Sentence number {n} describes the measured photoluminescence spectra in detail."
+            for n in range(12)
+        )
+        self.assertGreater(len(sentence_chunks(paragraph)), 1)
+        from movie_slide_notes.pdf_translate.models import TextBlock
+
+        with tempfile.TemporaryDirectory() as folder:
+            from test_pdf_translate import make_paper
+
+            source = Path(folder) / "paper.pdf"
+            make_paper(source, pages=1)
+            engine = HeadingOnlyEngine()
+            from unittest.mock import patch
+
+            from movie_slide_notes.pdf_translate import layout
+
+            block = TextBlock(0, 50, 100, 550, 700, paragraph, 10.0)
+            with patch.object(
+                layout,
+                "extract_text_pages",
+                return_value={0: ([block], 500, 0.0)},
+            ):
+                translate_pdf(source, Path(folder), PdfTranslationOptions(), engine, "partial")
+        self.assertIn("Sentence number 11", block.translated)
+        self.assertNotIn("見出し", block.translated)
+        self.assertGreater(engine.pieces, 1)
+
+
 class CompareViewerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -439,6 +561,40 @@ class BatchTranslationTests(unittest.TestCase):
             self.assertIn("2", page.file_name.text())
             self.assertTrue(page.set_sources(sources[:1]))
             self.assertFalse(page.range_row.isHidden())
+            del page, settings
+
+    def test_pdfs_can_be_added_removed_and_previewed(self) -> None:
+        from PySide6.QtCore import QSettings
+        from test_pdf_translate import make_paper
+
+        from movie_slide_notes.gui.pdf_translate_page import EngineSettings, PdfTranslatePage
+
+        with tempfile.TemporaryDirectory() as folder:
+            settings = QSettings(str(Path(folder) / "s.ini"), QSettings.IniFormat)
+            page = PdfTranslatePage(settings, EngineSettings(settings))
+            sources = []
+            for name, pages in (("a", 1), ("b", 2), ("c", 1)):
+                sources.append(Path(folder) / f"{name}.pdf")
+                make_paper(sources[-1], pages=pages)
+            self.assertTrue(page.set_sources(sources[:1]))
+            self.assertTrue(page.add_sources(sources[1:]))
+            self.assertEqual(page.sources, sources)
+            self.assertEqual(page.file_list.count(), 3)
+            self.assertIsNotNone(page.source_pane.image.pixmap())
+            self.assertFalse(page.source_pane.image.pixmap().isNull())
+
+            # The PDF clicked in the list is shown, and its pages can be turned.
+            page.file_list.setCurrentRow(1)
+            self.assertEqual(page.source_pane.caption.text(), "b.pdf")
+            self.assertEqual(page.source_page_label.text(), "1 / 2")
+            page.source_next_button.click()
+            self.assertEqual(page.source_page_label.text(), "2 / 2")
+            self.assertFalse(page.source_next_button.isEnabled())
+
+            page.file_list.clearSelection()
+            page.file_list.item(1).setSelected(True)
+            page.remove_selected_pdfs()
+            self.assertEqual(page.sources, [sources[0], sources[2]])
             del page, settings
 
 

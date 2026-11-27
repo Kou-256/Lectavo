@@ -304,6 +304,59 @@ def _main_font(lines: list) -> str:
     return fonts.most_common(1)[0][0] if fonts else ""
 
 
+HEADING_LINES = 3
+_NUMBERED_HEADING = re.compile(r"^\s*(?:\d+(?:\.\d+)*\.?|[IVX]+\.)\s+\S")
+
+
+def split_heading(lines: list) -> list[list]:
+    """Split section headings set in their own font off the paragraphs around them.
+
+    pdfminer puts a heading such as "3.1. Phosphor properties of …" in the same
+    box as its paragraph, at the top or between two paragraphs. Translated
+    together, small models often answer only the heading and drop the paragraph.
+    A run-in label on the same line ("Fig. 2. (a) …") stays with its text.
+    """
+    ordered = reading_order(lines)
+    if len(ordered) < 2:
+        return [lines]
+    fonts = [_main_font([line]) for line in ordered]
+    body_font = Counter(fonts).most_common(1)[0][0]
+    height = median(line.y1 - line.y0 for line in ordered)
+    groups: list[list] = [[]]
+    position = 0
+    while position < len(ordered):
+        end = position
+        while end < len(ordered) and fonts[end] != body_font and end - position < HEADING_LINES:
+            end += 1
+        run = ordered[position:end]
+        stands_alone = (
+            run
+            and (end == len(ordered) or fonts[end] == body_font)
+            and len(run) < len(ordered)
+            # Whole lines: nothing of the paragraph beside them.
+            and all(
+                min(line.y0 for line in run) >= other.y1 - 0.3 * height
+                or max(line.y1 for line in run) <= other.y0 + 0.3 * height
+                for other in ordered
+                if other not in run
+            )
+            # At the top of the box any font change counts; further down only a
+            # numbered heading does (not, say, an italic line of the paragraph).
+            and (position == 0 or _NUMBERED_HEADING.match(run[0].get_text()))
+        )
+        if stands_alone:
+            if groups[-1]:
+                groups.append([])
+            groups[-1].extend(run)
+            groups.append([])
+            position = end
+        else:
+            groups[-1].append(ordered[position])
+            position += 1
+    groups = [group for group in groups if group]
+    return groups if len(groups) > 1 else [lines]
+
+
 def merge_orphans(boxes: list[list]) -> list[list]:
     """Join a one-line box to the paragraph right above or below it.
 
@@ -570,7 +623,8 @@ def extract_text_pages(
                 lines = [line for line in item if any(isinstance(c, LTChar) for c in line)]
                 char_count += sum(1 for line in lines for c in line if isinstance(c, LTChar))
                 # Formulas stay in the original; the prose around them is translated.
-                boxes.extend(split_math(lines))
+                for group in split_math(lines):
+                    boxes.extend(split_heading(group))
                 return
             if hasattr(item, "__iter__"):
                 for child in item:

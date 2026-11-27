@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import sqlite3
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -103,16 +104,29 @@ def make_batches(blocks: list[TextBlock], batch_chars: int = BATCH_CHARS) -> lis
     return batches
 
 
-def misaligned(sources: list[str], results: list[str]) -> list[int]:
-    """Positions whose answer looks like it belongs to another item of the batch.
+LONG_SOURCE = 400
+_MARKER = re.compile(r"⟦\d+⟧")
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z⟦(\[])")
 
-    A long paragraph answered by a few characters, or two different sources
-    answered with the same text, means the engine mixed up the items.
+
+def misaligned(sources: list[str], results: list[str]) -> list[int]:
+    """Positions whose answer looks like it belongs to another item, or lost text.
+
+    A long paragraph answered by a few characters, two different sources
+    answered with the same text, or most of the protected terms missing means
+    the engine mixed up the items or translated only part of the paragraph.
     """
     suspicious: set[int] = set()
     seen: dict[str, int] = {}
     for position, (source, result) in enumerate(zip(sources, results, strict=True)):
-        if len(source) >= 60 and len(result.strip()) < len(source) * 0.12:
+        length = len(result.strip())
+        if len(source) >= 60 and length < len(source) * 0.12:
+            suspicious.add(position)
+        if len(source) >= LONG_SOURCE and length < len(source) * 0.2:
+            suspicious.add(position)
+        markers = set(_MARKER.findall(source))
+        lost = markers - set(_MARKER.findall(result))
+        if len(markers) >= 3 and len(lost) * 2 > len(markers):
             suspicious.add(position)
         key = result.strip()
         if key in seen and sources[seen[key]].strip() != source.strip():
@@ -121,13 +135,38 @@ def misaligned(sources: list[str], results: list[str]) -> list[int]:
     return sorted(suspicious)
 
 
+def sentence_chunks(text: str, size: int = LONG_SOURCE) -> list[str]:
+    """A paragraph cut at sentence ends into pieces of about ``size`` characters."""
+    chunks: list[str] = []
+    for sentence in _SENTENCE_END.split(text):
+        if chunks and len(chunks[-1]) + len(sentence) < size:
+            chunks[-1] += " " + sentence
+        else:
+            chunks.append(sentence)
+    return chunks
+
+
+_SECTION_HEADING = re.compile(r"^\s*(?:\d+(?:\.\d+)*\.?|[IVX]+\.)\s")
+
+
 def document_context(pages: list[PageInfo]) -> str:
-    """The first heading-like block, given to the engine for consistent terminology."""
+    """The document title, given to the engine for consistent terminology.
+
+    Only text set clearly larger than the body counts. A numbered section
+    heading such as "2. Experimental methods" is not a title, and small models
+    copy it into the translations.
+    """
     for page in pages[:2]:
-        candidates = sorted(page.blocks, key=lambda b: -b.font_size)
-        for block in candidates:
-            if 3 <= len(block.text.split()) <= 25:
-                return strip_tags(block.text)
+        sizes = sorted(block.font_size for block in page.blocks)
+        if not sizes:
+            continue
+        body = sizes[len(sizes) // 2]
+        for block in sorted(page.blocks, key=lambda b: -b.font_size):
+            if block.font_size < body * 1.2:
+                break
+            text = strip_tags(block.text)
+            if 3 <= len(text.split()) <= 25 and not _SECTION_HEADING.match(text):
+                return text
     return ""
 
 
@@ -261,11 +300,18 @@ def translate_pdf(
                 )
 
             results = ask(texts)
-            if len(texts) > 1:
-                # Small models sometimes shift answers by one item; ask again one by one.
-                for position in misaligned(texts, results):
-                    check_cancel()
-                    results[position] = ask([texts[position]])[0]
+            # Small models sometimes shift answers by one item or drop part of a
+            # long paragraph; ask again one by one, then sentence by sentence.
+            for position in misaligned(texts, results):
+                check_cancel()
+                text = texts[position]
+                answer = ask([text])[0]
+                if misaligned([text], [answer]):
+                    pieces = sentence_chunks(text)
+                    if len(pieces) > 1:
+                        check_cancel()
+                        answer = " ".join(part.strip() for part in ask(pieces))
+                results[position] = answer
             return [restore(text, tokens) for text, tokens in zip(results, saved, strict=True)]
 
         with ThreadPoolExecutor(
