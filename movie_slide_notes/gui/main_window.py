@@ -70,6 +70,7 @@ from movie_slide_notes.gui.i18n import (
 from movie_slide_notes.gui.icons import icon as svg_icon
 from movie_slide_notes.gui.icons import icon_pixmap as svg_pixmap
 from movie_slide_notes.gui.icons import toggle_icon
+from movie_slide_notes.gui.media_preview import MediaPreview
 from movie_slide_notes.gui.pdf_translate_page import (
     EngineSettings,
     EngineSettingsWidget,
@@ -373,6 +374,9 @@ class MainWindow(QMainWindow):
         self.video_list_layout = QVBoxLayout()
         self.video_list_layout.setSpacing(0)
         ready_layout.addLayout(self.video_list_layout)
+        # Plays the file chosen in the list, to check it before processing.
+        self.media_preview = MediaPreview()
+        ready_layout.addWidget(self.media_preview)
 
         self.clear_button = QPushButton("すべて削除")
         self.clear_button.setObjectName("LinkButton")
@@ -1407,6 +1411,8 @@ class MainWindow(QMainWindow):
         self._set_log_texts()
 
     def _set_running(self, running: bool) -> None:
+        if running:
+            self._pause_preview()
         self.add_media_button.setEnabled(not running)
         self.remove_media_button.setEnabled(not running)
         self.select_video_button.setEnabled(not running)
@@ -1445,6 +1451,8 @@ class MainWindow(QMainWindow):
     def _set_workflow_state(self, state: str) -> None:
         self.workflow_state = state
         self.nav_process.setEnabled(state != "empty")
+        if state != "ready":
+            self._pause_preview()
         if state == "empty":
             self._select_page("home")
             return
@@ -1458,7 +1466,14 @@ class MainWindow(QMainWindow):
         self.home_stack.setCurrentIndex(index)
         self._select_page("processing")
 
+    def _pause_preview(self) -> None:
+        preview = getattr(self, "media_preview", None)
+        if preview is not None:
+            preview.stop()
+
     def _select_page(self, page: str) -> None:
+        if page != "processing":
+            self._pause_preview()
         mapping = {
             "home": self.home_page,
             "processing": self.processing_page,
@@ -1513,9 +1528,11 @@ class MainWindow(QMainWindow):
         clear_layout(self.video_list_layout)
         if not self.videos:
             self.video_list_layout.addWidget(subtitle(tr("動画はまだ追加されていません。")))
+            self.media_preview.set_source(None)
             return
         current = self.file_tabs.currentItem()
         active_path = current.data(Qt.UserRole) if current else self.videos[0]
+        self.media_preview.set_source(active_path)
         for path in [active_path]:
             row = QFrame()
             row.setObjectName("ListRow")

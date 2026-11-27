@@ -17,6 +17,14 @@ _current_language = DEFAULT_UI_LANGUAGE
 
 
 ENGLISH: dict[str, str] = {
+    "再生": "Play",
+    "一時停止": "Pause",
+    "再生位置": "Playback position",
+    "消音": "Mute",
+    "消音を解除": "Unmute",
+    "ファイルを選ぶと、ここで再生して確認できます。": "Choose a file to play it here and check it.",
+    "このPCではプレビューを表示できません（処理はできます）。": "Preview is not available on this PC (processing still works).",
+    "このファイルはプレビューできません（処理はできます）。": "This file cannot be previewed (processing still works).",
     "すべてのページの文字を選択": "Select text on all pages",
     "翻訳後のPDFを編集": "Edit translated PDF",
     "訳文の書き換え、図の移動・差し替えなどができます": "Rewrite translations, move or replace figures, and more",

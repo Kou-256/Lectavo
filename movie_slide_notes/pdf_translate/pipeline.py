@@ -244,6 +244,10 @@ def translate_pdf(
                 layout.sample_colors(color_image, color_scale, page.height, block)
                 for block in blocks
             ]
+            for block, (background, _text) in zip(
+                blocks, background_colors[page.index], strict=True
+            ):
+                layout.extend_to_ink(color_image, color_scale, page.height, block, background)
     if ocr_pages:
         say(f"{ocr_pages}ページをOCRで読み取りました")
 

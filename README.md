@@ -12,7 +12,7 @@
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-0b1012" /></a>
 </p>
 
-<p align="center"><a href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.5.4-x64.exe"><strong>⬇ Windows版をダウンロード（0.5.4）</strong></a> ・ <a href="https://lectavo.vercel.app">公式サイト</a> ・ 日本語 ・ <a href="README.en.md">English</a></p>
+<p align="center"><a href="https://github.com/Kou-256/Lectavo/releases/latest/download/Lectavo-setup-0.5.5-x64.exe"><strong>⬇ Windows版をダウンロード（0.5.5）</strong></a> ・ <a href="https://lectavo.vercel.app">公式サイト</a> ・ 日本語 ・ <a href="README.en.md">English</a></p>
 
 ![Lectavoのホーム画面](docs/images/lectavo-home.png)
 
@@ -73,7 +73,7 @@ PDFの文字だけを訳して、元のページに書き戻します。レイ�
 
 ## ダウンロード
 
-一般ユーザーは[最新のGitHub Release](https://github.com/Kou-256/Lectavo/releases/latest)から`Lectavo-setup-0.5.4-x64.exe`を取得してください。インストール後の利用にPython、pip、Git、仮想環境、外部`ffmpeg.exe`は不要です。
+一般ユーザーは[最新のGitHub Release](https://github.com/Kou-256/Lectavo/releases/latest)から`Lectavo-setup-0.5.5-x64.exe`を取得してください。インストール後の利用にPython、pip、Git、仮想環境、外部`ffmpeg.exe`は不要です。
 
 - 対応: Windows 10 / 11 x64
 - 初期UI言語: 日本語
@@ -82,7 +82,7 @@ PDFの文字だけを訳して、元のページに書き戻します。レイ�
 - GPU: 任意。CPUのみでも利用可能
 - デスクトップショートカット・スタートメニュー: 既定で作成（更新時も毎回チェックがオンで表示されます）
 
-現在の`0.5.4`配布物は自己署名です（発行元「Lectavo / Kou Hashizume」）。信頼された認証局の証明書ではないため、Windows SmartScreenや「発行元を確認できません」の警告が表示される場合があります。ダウンロード後はReleaseに掲載されたSHA-256と照合してください。
+現在の`0.5.5`配布物は自己署名です（発行元「Lectavo / Kou Hashizume」）。信頼された認証局の証明書ではないため、Windows SmartScreenや「発行元を確認できません」の警告が表示される場合があります。ダウンロード後はReleaseに掲載されたSHA-256と照合してください。
 
 ## 使い方
 
@@ -100,7 +100,7 @@ PDFの文字だけを訳して、元のページに書き戻します。レイ�
 
 ![音声ファイルの文字起こし](docs/images/lectavo-audio.png)
 
-1. `Lectavo-setup-0.5.4-x64.exe`を実行します。
+1. `Lectavo-setup-0.5.5-x64.exe`を実行します。
 2. デスクトップまたはスタートメニューからLectavoを起動します。
 3. 「動画を選択」、フォルダ選択、またはドラッグ＆ドロップで動画を追加します。
 4. 「まとめて出力」または「動画ごとに出力」を選びます。
@@ -243,14 +243,20 @@ release/
 
 ## 更新履歴
 
+### 0.5.5 の改善
+
+- **動画・音声のプレビュー**: 処理画面で、選んだファイルを再生して確認できます（再生・一時停止、シーク、消音）。
+- **PDF翻訳**: グラフの目盛りの数字が軸の名前と一緒に訳される問題と、訳文の横に原文の文字（例:「t.」）が残る問題を修正しました。
+- 配布ファイル名は `Lectavo-setup-0.5.5-x64.exe` です。
+
+<details>
+<summary>以前のバージョン</summary>
+
 ### 0.5.4 の新機能
 
 - **翻訳後のPDFを編集**: 完了画面の「編集」や比較画面から、訳文の書き換え・移動・文字の大きさの変更、図の切り出し・移動・拡大縮小・削除・差し替え、テキストや画像の追加、範囲の消去ができます。保存すると翻訳PDFと対訳PDFを作り直します。
 - **比較画面で文字を選択・コピー**: ドラッグで文字を選び、Ctrl+Cでコピーできます。ページをまたいでも選択でき、2段組みのページも読む順に選択します。翻訳後のPDFでは、訳文の下に隠れた原文は選択されません。
 - 配布ファイル名は `Lectavo-setup-0.5.4-x64.exe` です。
-
-<details>
-<summary>以前のバージョン</summary>
 
 ### 0.5.3 の改善
 

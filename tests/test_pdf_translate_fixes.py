@@ -635,3 +635,41 @@ class DefaultModelTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FigureLabelAndInkTests(unittest.TestCase):
+    def test_tick_numbers_stay_out_of_the_axis_title(self) -> None:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen.canvas import Canvas
+
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "axis.pdf"
+            canvas = Canvas(str(source), pagesize=A4)
+            canvas.setFont("Helvetica", 7)
+            for x, label in ((300, "10"), (320, "15")):
+                canvas.drawCentredString(x, 500, label)
+            canvas.drawCentredString(310, 490, "Eu content (%)")
+            canvas.setFont("Times-Roman", 10)
+            canvas.drawString(60, 700, PROSE)
+            canvas.showPage()
+            canvas.save()
+            blocks, _chars, _coverage = extract_text_pages(normalize_pdf(source), [0])[0]
+        texts = [block.text for block in blocks]
+        self.assertIn("Eu content (%)", texts)
+        self.assertFalse(any("10" in text or "15" in text for text in texts), texts)
+
+    def test_the_cover_reaches_text_drawn_past_the_reported_box(self) -> None:
+        from PIL import Image, ImageDraw
+
+        from movie_slide_notes.pdf_translate.layout import extend_to_ink
+        from movie_slide_notes.pdf_translate.models import TextBlock
+
+        image = Image.new("RGB", (300, 200), "white")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((20, 50, 100, 58), fill="black")  # the reported line
+        draw.rectangle((102, 50, 110, 58), fill="black")  # "t." drawn past it
+        draw.rectangle((180, 50, 260, 58), fill="black")  # the next column
+        block = TextBlock(0, 20, 200 - 60, 100, 200 - 48, "text", 10.0)
+        extend_to_ink(image, 1.0, 200, block, (1.0, 1.0, 1.0))
+        self.assertGreaterEqual(block.x1, 110)
+        self.assertLess(block.x1, 180)
