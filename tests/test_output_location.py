@@ -92,6 +92,15 @@ class OutputLocationUiTests(unittest.TestCase):
             restored.close()
 
 
+def wait_until(condition, timeout_ms: int) -> bool:
+    """Process events until ``condition`` holds; a busy CI runner can lag behind timers."""
+    waited = 0
+    while not condition() and waited < timeout_ms:
+        QTest.qWait(20)
+        waited += 20
+    return bool(condition())
+
+
 class DisclosureAnimationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -105,13 +114,12 @@ class DisclosureAnimationTests(unittest.TestCase):
         widget.slide_detail_button.setChecked(True)
         self.assertTrue(panel.isVisible())
         self.assertLess(panel.maximumHeight(), panel.sizeHint().height())
-        QTest.qWait(320)
+        # Wait for the animation to finish; a busy CI runner can lag behind its timer.
+        self.assertTrue(wait_until(lambda: panel.maximumHeight() > 10000, 2000))
         self.assertTrue(panel.isVisible())
-        self.assertGreater(panel.maximumHeight(), 10000)
         widget.slide_detail_button.setChecked(False)
         self.assertTrue(panel.isVisible())  # still animating out
-        QTest.qWait(260)
-        self.assertFalse(panel.isVisible())
+        self.assertTrue(wait_until(lambda: not panel.isVisible(), 2000))
         widget.close()
 
     def test_rapid_toggle_ends_in_the_last_state(self) -> None:
@@ -120,7 +128,7 @@ class DisclosureAnimationTests(unittest.TestCase):
         holder.show()
         for state in (True, False, True):
             animate_panel(panel, state)
-        QTest.qWait(320)
+        self.assertTrue(wait_until(lambda: panel.maximumHeight() > 10000, 2000))
         self.assertTrue(panel.isVisible())
         holder.close()
 
