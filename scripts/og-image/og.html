@@ -1,0 +1,68 @@
+<!-- Source of website/public/lectavo-og-v3.png (1200x630).
+  Put app-icon.png (website/public), en.png and ja.png (the top 62% of page 1 of the sample paper from
+  scripts/generate_translate_sample.py and of its Japanese translation, rendered at scale 2.2) next to this
+  file, then: msedge --headless=new --force-device-scale-factor=2 --window-size=1200,630 --screenshot=og@2x.png og.html
+  and downscale to 1200x630. -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" />
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    position: relative;
+    background:
+      radial-gradient(70% 90% at 85% 40%, rgba(25, 180, 169, 0.18), transparent 70%),
+      #0b1012;
+    color: #edf3f2;
+    font-family: "Zen Kaku Gothic New", "Yu Gothic UI", sans-serif;
+  }
+  .copy { position: absolute; left: 64px; top: 56px; width: 600px; }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .brand img { width: 64px; height: 64px; border-radius: 15px; }
+  .brand b { font-size: 34px; font-weight: 700; }
+  h1 { margin-top: 40px; font-size: 54px; font-weight: 900; line-height: 1.24; letter-spacing: -0.01em; }
+  .rows { margin-top: 34px; display: grid; gap: 14px; }
+  .row { display: flex; align-items: center; gap: 14px; font-size: 22px; font-weight: 700; }
+  .from { padding: 6px 14px; border-radius: 9px; background: #172226; border: 1px solid rgba(222,240,238,.16); font-size: 19px; }
+  .arrow { width: 30px; height: 2px; background: #3fd6cb; position: relative; flex: none; }
+  .arrow::after { content: ""; position: absolute; right: -1px; top: -5px; border: 6px solid transparent; border-left: 9px solid #3fd6cb; border-right: 0; }
+  .to { color: #3fd6cb; }
+  .meta { margin-top: 34px; color: #a9b8b7; font-size: 18px; font-weight: 500; }
+  .meta span + span::before { content: "・"; margin: 0 8px; color: #607270; }
+  .papers { position: absolute; right: -40px; top: 70px; width: 540px; height: 520px; }
+  .paper {
+    position: absolute; width: 380px; border-radius: 6px; overflow: hidden; background: #fff;
+    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .paper img { display: block; width: 100%; }
+  .en { left: 0; top: 0; transform: rotate(-5deg); filter: brightness(0.82); }
+  .ja { left: 150px; top: 70px; transform: rotate(3deg); }
+  .tag {
+    position: absolute; padding: 6px 14px; border-radius: 999px; font-size: 16px; font-weight: 700;
+    box-shadow: 0 10px 24px -10px rgba(0,0,0,.8);
+  }
+  .tag-en { left: 18px; top: 330px; background: #2a3639; color: #edf3f2; transform: rotate(-5deg); }
+  .tag-ja { left: 400px; top: 420px; background: #19b4a9; color: #032220; }
+</style>
+</head>
+<body>
+  <div class="copy">
+    <div class="brand"><img src="app-icon.png" alt="" /><b>Lectavo</b></div>
+    <h1>講義動画と英語論文を、<br />読める資料に。</h1>
+    <div class="rows">
+      <div class="row"><span class="from">講義動画</span><i class="arrow"></i><span class="to">スライドPDF・文字起こし・ノート</span></div>
+      <div class="row"><span class="from">英語の論文</span><i class="arrow"></i><span class="to">図も数式もそのままの日本語PDF</span></div>
+    </div>
+    <p class="meta"><span>無料</span><span>PCの中だけで処理</span><span>Windows 10 / 11</span></p>
+  </div>
+  <div class="papers">
+    <div class="paper en"><img src="en.png" alt="" /></div>
+    <div class="paper ja"><img src="ja.png" alt="" /></div>
+    <span class="tag tag-en">翻訳前</span>
+    <span class="tag tag-ja">翻訳後</span>
+  </div>
+</body>
+</html>
